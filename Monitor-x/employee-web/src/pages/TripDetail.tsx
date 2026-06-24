@@ -1,0 +1,79 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Phone, CheckCircle2 } from 'lucide-react';
+import { getEmployeeTrip } from '../api/trips';
+import type { EmployeeTrip } from '../api/types';
+import { useToast } from '../context/ToastContext';
+import { useRealtime } from '../context/RealtimeContext';
+import SosButton from '../components/SosButton';
+
+export default function TripDetail() {
+  const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { on } = useRealtime();
+  const [trip, setTrip] = useState<EmployeeTrip | null>(null);
+
+  const load = useCallback(() => {
+    getEmployeeTrip(id)
+      .then(setTrip)
+      .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load trip'));
+  }, [id, toast]);
+
+  useEffect(() => load(), [load]);
+  useEffect(() => {
+    const offStatus = on('trip:status', load);
+    const offVerified = on('employee:verified', load);
+    return () => {
+      offStatus();
+      offVerified();
+    };
+  }, [on, load]);
+
+  if (!trip) return <div className="app-shell p-6 text-[#777]">Loading…</div>;
+
+  return (
+    <div className="app-shell pb-28">
+      <header className="bg-[#004b87] text-white px-4 py-4 flex items-center gap-3">
+        <button onClick={() => navigate('/')} aria-label="Back">
+          <ArrowLeft size={22} />
+        </button>
+        <div className="font-bold">Trip {trip.id}</div>
+      </header>
+
+      <div className="px-4 py-4 space-y-3">
+        <div className="card p-4">
+          <Row label="Type" value={`${trip.type} · ${trip.route || trip.location}`} />
+          <Row label="Date / Shift" value={`${trip.date} · ${trip.shiftTime || '—'}`} />
+          <Row label="Status" value={trip.status} valueClass={trip.statusColor} />
+          {trip.verified && (
+            <div className="flex items-center gap-1 text-[#2e7d32] text-[13px] mt-1">
+              <CheckCircle2 size={15} /> Verified for pickup
+            </div>
+          )}
+        </div>
+        <div className="card p-4">
+          <Row label="Vehicle No" value={trip.vehicleNo || '—'} />
+          <Row label="Vendor" value={trip.vendor || '—'} />
+          <Row label="Driver" value={trip.driver.name || 'To be assigned'} />
+        </div>
+        {trip.driver.contact && (
+          <a href={`tel:${trip.driver.contact}`} className="btn btn-green w-full">
+            <Phone size={18} /> Call Driver
+          </a>
+        )}
+      </div>
+
+      <SosButton tripId={trip.id} />
+    </div>
+  );
+}
+
+function Row({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div className="flex justify-between gap-3 text-[14px] py-[2px]">
+      <span className="text-[#777]">{label}</span>
+      <span className={`font-medium text-right ${valueClass ?? ''}`}>{value}</span>
+    </div>
+  );
+}

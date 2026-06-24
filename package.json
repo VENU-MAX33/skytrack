@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "claude": "^0.1.1",
+    "headroom-ai": "^0.22.4"
+  }
+}

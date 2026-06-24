@@ -1,0 +1,13 @@
+{
+  "name": "transport-management",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -n api,web,driver,employee -c blue,green,yellow,magenta \"npm:dev --prefix backend\" \"npm:dev --prefix frontend-vite\" \"npm:dev --prefix driver-web\" \"npm:dev --prefix employee-web\"",
+    "seed": "npm run seed --prefix backend",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend-vite"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
