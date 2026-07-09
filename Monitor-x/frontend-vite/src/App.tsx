@@ -21,6 +21,8 @@ import DriverManagement from "./pages/DriverManagement";
 import DriverForm from "./pages/DriverForm";
 import VehicleTracking from "./pages/VehicleTracking";
 import RouteForm from "./pages/RouteForm";
+import RouteManagement from "./pages/RouteManagement";
+import LocationRequests from "./pages/LocationRequests";
 
 function App() {
   return (
@@ -41,6 +43,7 @@ function App() {
               <Route path="/master-routing" element={<MasterRouting />} />
               <Route path="/master-routing/new" element={<RouteForm />} />
               <Route path="/master-routing/edit/:id" element={<RouteForm />} />
+              <Route path="/route-management" element={<RouteManagement />} />
               <Route path="/rostering" element={<Rostering />} />
               <Route path="/trip-management" element={<TripManagement />} />
               <Route path="/live_trip_monitor" element={<LiveTripMonitor />} />
@@ -55,6 +58,7 @@ function App() {
               <Route path="/driver-management/add" element={<DriverForm />} />
               <Route path="/driver-management/edit/:id" element={<DriverForm />} />
               <Route path="/vehicle-tracking" element={<VehicleTracking />} />
+              <Route path="/location-requests" element={<LocationRequests />} />
             </Route>
           </Route>
             </Routes>

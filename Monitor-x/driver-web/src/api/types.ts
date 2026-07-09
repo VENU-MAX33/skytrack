@@ -49,3 +49,13 @@ export interface SosAlert {
   employee: { id: string; name: string; contact: string };
   driver: { name: string; contact: string } | null;
 }
+
+export interface EmpLocationUpdate {
+  employeeMongoId: string;
+  empId: string;
+  empName: string;
+  tripId: string;
+  lat: number;
+  lng: number;
+  timestamp: string;
+}

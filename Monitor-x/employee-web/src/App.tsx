@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import TripNotification from './components/TripNotification';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TripDetail from './pages/TripDetail';
@@ -13,6 +14,7 @@ export default function App() {
       <AuthProvider>
         <RealtimeProvider>
           <BrowserRouter>
+            <TripNotification />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>

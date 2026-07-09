@@ -10,6 +10,7 @@ const EMPTY: Driver = {
   name: "", gender: "Male", dlNumber: "", badgeNumber: "",
   contact: "", email: "", vendor: "RGL",
   dlEffectiveFrom: "", dlExpiry: "", address: "",
+  aadhaar: "", pan: "",
   inductionDate: "", firstVaccination: "", secondVaccination: "",
   pvcExpiry: "", medicalExpiry: "", active: "Yes",
 };
@@ -88,53 +89,50 @@ export default function DriverForm() {
               <input className={INPUT} value={form.contact} onChange={(e) => set("contact", e.target.value)} />
             </FormField>
 
-            <FormField label="Email">
-              <input type="email" className={INPUT} value={form.email} onChange={(e) => set("email", e.target.value)} />
+            <FormField label="Aadhaar Number">
+              <input
+                className={INPUT}
+                value={form.aadhaar}
+                onChange={(e) => set("aadhaar", e.target.value)}
+                placeholder="12-digit Aadhaar"
+              />
+            </FormField>
+            <FormField label="PAN Number">
+              <input
+                className={INPUT}
+                value={form.pan}
+                onChange={(e) => set("pan", e.target.value.toUpperCase())}
+                placeholder="e.g. ABCDE1234F"
+              />
             </FormField>
             <FormField label="Vendor">
               <select className={SELECT} value={form.vendor} onChange={(e) => set("vendor", e.target.value)}>
                 <option>RGL</option>
               </select>
             </FormField>
+
             <FormField label="DL Number">
               <input className={INPUT} value={form.dlNumber} onChange={(e) => set("dlNumber", e.target.value)} />
             </FormField>
-
             <FormField label="Badge Number">
               <input className={INPUT} value={form.badgeNumber} onChange={(e) => set("badgeNumber", e.target.value)} />
             </FormField>
             <FormField label="DL Effective From">
               <input type="date" className={INPUT} value={form.dlEffectiveFrom} onChange={(e) => set("dlEffectiveFrom", e.target.value)} />
             </FormField>
+
             <FormField label="DL Expiry Date">
               <input type="date" className={INPUT} value={form.dlExpiry} onChange={(e) => set("dlExpiry", e.target.value)} />
             </FormField>
-
             <FormField label="Address">
               <input className={INPUT} value={form.address} onChange={(e) => set("address", e.target.value)} />
-            </FormField>
-            <FormField label="Induction Date">
-              <input type="date" className={INPUT} value={form.inductionDate} onChange={(e) => set("inductionDate", e.target.value)} />
-            </FormField>
-            <FormField label="First Vaccination Date">
-              <input type="date" className={INPUT} value={form.firstVaccination} onChange={(e) => set("firstVaccination", e.target.value)} />
-            </FormField>
-
-            <FormField label="Second Vaccination Date">
-              <input type="date" className={INPUT} value={form.secondVaccination} onChange={(e) => set("secondVaccination", e.target.value)} />
             </FormField>
             <FormField label="PVC Expiry Date">
               <input type="date" className={INPUT} value={form.pvcExpiry} onChange={(e) => set("pvcExpiry", e.target.value)} />
             </FormField>
+
             <FormField label="Medical Expiry Date">
               <input type="date" className={INPUT} value={form.medicalExpiry} onChange={(e) => set("medicalExpiry", e.target.value)} />
-            </FormField>
-
-            <FormField label="Active">
-              <select className={SELECT} value={form.active} onChange={(e) => set("active", e.target.value)}>
-                <option>Yes</option>
-                <option>No</option>
-              </select>
             </FormField>
           </div>
         </div>

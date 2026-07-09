@@ -66,6 +66,8 @@ export interface Driver {
   dlEffectiveFrom: string;
   dlExpiry: string;
   address: string;
+  aadhaar: string;
+  pan: string;
   inductionDate: string;
   firstVaccination: string;
   secondVaccination: string;
@@ -79,6 +81,15 @@ export interface Route {
   name: string;
   count: number;
   type: string;
+  destLat: number | null;
+  destLng: number | null;
+}
+
+export interface CompanyConfig {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
 }
 
 export interface Trip {
@@ -153,6 +164,8 @@ export interface SosAlert {
   id: string;
   status: string;
   location: string;
+  reason: string;
+  photoBase64: string;
   createdAt: string;
   acknowledgedBy: string;
   acknowledgedAt: string | null;
@@ -212,4 +225,36 @@ export interface TripFilters {
   vendor?: string;
   search?: string;
   status?: string;
+}
+
+export interface EmployeeLocationUpdate {
+  employeeMongoId: string;
+  empId: string;
+  empName: string;
+  tripId: string;
+  lat: number;
+  lng: number;
+  timestamp: string;
+  driverMongoId?: string;
+}
+
+export interface LocationRequestDTO {
+  id: string;
+  employee: { id: string; name: string; contact: string };
+  currentAddress: string;
+  currentLatLong: string;
+  requestedAddress: string;
+  requestedLatLong: string;
+  status: string;
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string;
+  note: string;
+}
+
+export interface EmployeeDocumentDTO {
+  id: string;
+  name: string;
+  mimeType: string;
+  uploadedAt: string;
 }

@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { MapPin, Search, Download, X, Navigation, RefreshCw } from "lucide-react";
+import { MapPin, Search, Download, X, Navigation, RefreshCw, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { getLiveTripMonitorData } from "../api";
 import type { Trip } from "../api";
 import Pagination from "../components/Pagination";
 import { exportToCsv } from "../lib/exportCsv";
 import { useToast } from "../context/ToastContext";
+import { useRealtime } from "../context/RealtimeContext";
 import { statusInBucket, localToday, STATUS_BUCKETS } from "../lib/tripStatus";
 
 const PAGE_SIZE = 20;
@@ -44,6 +45,9 @@ export default function LiveTripMonitor() {
   const [toDate, setToDate] = useState(() => searchParams.get("date") ?? localToday());
   const [shiftTime, setShiftTime] = useState("All");
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
+  const { empLocations } = useRealtime();
+  const [showEmpLoc, setShowEmpLoc] = useState(true);
 
   const load = useCallback(() => {
     getLiveTripMonitorData({ fromDate, toDate })
@@ -129,8 +133,53 @@ export default function LiveTripMonitor() {
       ? statusFilter.replace("-", " ")
       : statusFilter;
 
+  function minsAgo(ts: string) {
+    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+    if (diff < 1) return 'just now';
+    return `${diff}m ago`;
+  }
+
   return (
     <>
+      {/* Live Employee Locations Panel */}
+      {empLocations.length > 0 && (
+        <div className="dashboard-card border-l-4 border-l-[#2e7d32] mb-4 overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-4 py-3 text-left"
+            onClick={() => setShowEmpLoc((v) => !v)}
+          >
+            <div className="flex items-center gap-2">
+              <Navigation className="w-4 h-4 text-[#2e7d32]" />
+              <span className="text-[14px] font-semibold text-[#1b5e20]">
+                Live Employee Locations ({empLocations.length})
+              </span>
+            </div>
+            {showEmpLoc ? <ChevronUp className="w-4 h-4 text-[#777]" /> : <ChevronDown className="w-4 h-4 text-[#777]" />}
+          </button>
+          {showEmpLoc && (
+            <div className="px-4 pb-3 flex flex-wrap gap-3">
+              {empLocations.map((loc) => (
+                <div key={loc.empId} className="flex items-center gap-2 bg-[#f0faf0] border border-[#c8e6c9] rounded-lg px-3 py-2">
+                  <MapPin className="w-3 h-3 text-[#2e7d32] shrink-0" />
+                  <div>
+                    <div className="text-[12px] font-semibold text-[#1b5e20]">{loc.empName}</div>
+                    <div className="text-[11px] text-[#555]">Trip {loc.tripId} · {minsAgo(loc.timestamp)}</div>
+                  </div>
+                  <a
+                    href={`https://maps.google.com/?q=${loc.lat},${loc.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 flex items-center gap-1 text-[11px] bg-[#2e7d32] text-white px-2 py-1 rounded font-medium"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Map
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">

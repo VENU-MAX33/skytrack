@@ -1,6 +1,6 @@
 import { Schema, model, Types } from 'mongoose';
 
-export type OtpPurpose = 'pickup' | 'password_reset';
+export type OtpPurpose = 'pickup' | 'password_reset' | 'login';
 
 export interface OtpDoc {
   purpose: OtpPurpose;
@@ -17,7 +17,7 @@ export interface OtpDoc {
 
 const otpSchema = new Schema<OtpDoc>(
   {
-    purpose: { type: String, enum: ['pickup', 'password_reset'], required: true },
+    purpose: { type: String, enum: ['pickup', 'password_reset', 'login'], required: true },
     phone: { type: String, required: true, index: true },
     otpHash: { type: String, required: true },
     tripId: { type: Schema.Types.ObjectId, ref: 'Trip', default: null },

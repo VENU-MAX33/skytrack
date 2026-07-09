@@ -1,15 +1,25 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Bus, Plus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Bus, Plus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { getTrips, getRosters, getVehicles, createTrip, freezeTrip } from "../api";
 import type { Trip, RosterEntry, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
 import { useToast } from "../context/ToastContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { localToday } from "../lib/tripStatus";
+import { exportToExcel, parseExcel, downloadTemplate } from "../lib/excel";
 
 const PAGE_SIZE = 10;
 const SHIFTS = ["All", "02:30", "05:00", "09:00", "14:30", "17:30"];
+
+interface TripImportRow {
+  'Employee IDs'?: string;
+  'Vehicle No'?: string;
+  'Route Name'?: string;
+  Date?: string;
+  'Shift Time'?: string;
+  Type?: string;
+}
 
 export default function TripManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,6 +37,11 @@ export default function TripManagement() {
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<TripImportRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState('');
+  const importRef = useRef<HTMLInputElement>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [selectedVehicleNo, setSelectedVehicleNo] = useState<string>("");
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
@@ -161,6 +176,68 @@ export default function TripManagement() {
     }
   }
 
+  function handleExportExcel() {
+    const data = trips.map((t) => ({
+      'Trip ID': t.id,
+      Status: t.status,
+      Type: t.type,
+      Date: t.date,
+      'Shift Time': t.shiftTime,
+      'Emp Count': t.empCount,
+      Escort: t.escort,
+      Route: t.route || '',
+      Location: t.location,
+      Vendor: t.vendor,
+      'Vehicle No': t.vehicleNo,
+    }));
+    exportToExcel('trips.xlsx', data);
+  }
+
+  async function handleImportFile(file: File) {
+    try {
+      const rows = await parseExcel<TripImportRow>(file);
+      if (rows.length === 0) { toast.error('No rows found in file'); return; }
+      setImportRows(rows);
+      setShowImportModal(true);
+    } catch {
+      toast.error('Failed to parse Excel file');
+    }
+  }
+
+  async function handleConfirmImport() {
+    setImporting(true);
+    let ok = 0; let fail = 0;
+    for (let i = 0; i < importRows.length; i++) {
+      const row = importRows[i];
+      setImportProgress(`Creating trip ${i + 1}/${importRows.length}…`);
+      try {
+        const empIds = (row['Employee IDs'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+        await createTrip({
+          status: 'Not Started Yet',
+          statusColor: '',
+          type: (row.Type ?? 'PickUp') === 'Drop' ? 'Drop' : 'PickUp',
+          date: row.Date ?? localToday(),
+          escort: 'No',
+          shiftTime: row['Shift Time'] ?? '09:00',
+          empCount: empIds.length,
+          location: row['Route Name'] ?? '',
+          vendor: '',
+          vehicleNo: row['Vehicle No'] ?? '',
+          employeeIds: empIds,
+        });
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setImporting(false);
+    setImportProgress('');
+    setShowImportModal(false);
+    setImportRows([]);
+    toast.success(`Import done: ${ok} created${fail > 0 ? `, ${fail} failed` : ''}`);
+    load();
+  }
+
   return (
     <>
       {/* Page Header */}
@@ -179,6 +256,36 @@ export default function TripManagement() {
         </div>
         <div className="flex items-center gap-2">
           <button className="bg-[#0047B2] text-white px-3 py-1 rounded text-[12px]">Cab</button>
+          {/* Excel: download template */}
+          <button
+            onClick={() => downloadTemplate('trips_template.xlsx', ['Employee IDs', 'Vehicle No', 'Route Name', 'Date', 'Shift Time', 'Type'])}
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+            title="Download Excel template"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
+            Template
+          </button>
+          {/* Excel: export current trips */}
+          <button
+            onClick={handleExportExcel}
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+            title="Export trips to Excel"
+          >
+            <Download className="w-4 h-4 text-[#0047B2]" />
+            Export
+          </button>
+          {/* Excel: import trips */}
+          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer" title="Import trips from Excel">
+            <Upload className="w-4 h-4 text-[#E65100]" />
+            Import
+            <input
+              ref={importRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleImportFile(f); e.target.value = ''; } }}
+            />
+          </label>
           <button
             onClick={handleCreateTrip}
             disabled={creating}
@@ -375,7 +482,7 @@ export default function TripManagement() {
                             <Lock className="w-4 h-4" />
                           </button>
                         )}
-                        {trip.frozen && <Lock className="w-4 h-4 text-[#18751C]" title="Frozen" />}
+                        {trip.frozen && <span title="Frozen"><Lock className="w-4 h-4 text-[#18751C]" /></span>}
                       </div>
                     </td>
                   </tr>
@@ -438,7 +545,7 @@ export default function TripManagement() {
                       <Lock className="w-3 h-3" />
                     </button>
                   )}
-                  {trip.frozen && <Lock className="w-3 h-3 text-[#18751C]" title="Frozen" />}
+                  {trip.frozen && <span title="Frozen"><Lock className="w-3 h-3 text-[#18751C]" /></span>}
                   <span className={`text-[12px] ${trip.statusColor}`}>{trip.status}</span>
                 </div>
               </div>
@@ -556,6 +663,57 @@ export default function TripManagement() {
               <button onClick={submitCreateTrip} disabled={creating} className="px-4 py-2 text-[13px] text-white bg-[#0047B2] rounded hover:bg-[#003a94] disabled:opacity-50">
                 {creating ? "Creating..." : "Create Trip"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Import Preview Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-2xl w-[90vw] max-w-3xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
+                <span className="text-[14px] font-semibold text-[#222]">Import Trips — {importRows.length} row{importRows.length !== 1 ? 's' : ''} found</span>
+              </div>
+              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#777] hover:text-[#222]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-4">
+              <table className="w-full text-[12px] border-collapse">
+                <thead>
+                  <tr className="bg-[#F5F6FA]">
+                    {importRows[0] && Object.keys(importRows[0]).map((h) => (
+                      <th key={h} className="border border-[#E0E4E9] px-2 py-1 text-left font-medium text-[#555]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {importRows.map((row, i) => (
+                    <tr key={i} className={i % 2 === 0 ? '' : 'bg-[#F9F9F9]'}>
+                      {Object.values(row).map((v, j) => (
+                        <td key={j} className="border border-[#E0E4E9] px-2 py-1 text-[#444]">{String(v ?? '')}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-[#E0E4E9] bg-[#F9F9F9] flex items-center justify-between gap-2">
+              {importProgress && <span className="text-[12px] text-[#0047B2]">{importProgress}</span>}
+              <div className="flex gap-2 ml-auto">
+                <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="px-4 py-2 text-[13px] border border-[#E0E4E9] rounded hover:bg-[#F5F6FA]">Cancel</button>
+                <button
+                  onClick={handleConfirmImport}
+                  disabled={importing}
+                  className="px-4 py-2 text-[13px] text-white bg-[#18751C] rounded hover:bg-[#145a18] disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  {importing ? importProgress || 'Importing…' : `Import ${importRows.length} Trips`}
+                </button>
+              </div>
             </div>
           </div>
         </div>

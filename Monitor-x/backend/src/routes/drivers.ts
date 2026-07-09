@@ -36,6 +36,37 @@ driversRouter.post(
   })
 );
 
+// POST /api/drivers/bulk — import many drivers from an uploaded sheet.
+// Skips rows missing name/DL and rows whose DL already exists; reports per-row outcome.
+driversRouter.post(
+  '/bulk',
+  asyncHandler(async (req, res) => {
+    const { drivers } = req.body as { drivers?: Partial<DriverDTO>[] };
+    if (!Array.isArray(drivers) || drivers.length === 0) {
+      throw new HttpError(400, 'drivers array is required');
+    }
+    let created = 0;
+    let skipped = 0;
+    const errors: { row: number; reason: string }[] = [];
+    for (let i = 0; i < drivers.length; i++) {
+      const d = drivers[i];
+      if (!d.name?.trim() || !d.dlNumber?.trim()) {
+        errors.push({ row: i + 1, reason: 'name and dlNumber are required' });
+        continue;
+      }
+      const exists = await Driver.findOne({ dlNumber: d.dlNumber });
+      if (exists) { skipped++; continue; }
+      try {
+        await Driver.create(d);
+        created++;
+      } catch (err) {
+        errors.push({ row: i + 1, reason: (err as Error).message });
+      }
+    }
+    res.status(201).json({ created, skipped, failed: errors.length, errors });
+  })
+);
+
 driversRouter.put(
   '/:name/active',
   asyncHandler(async (req, res) => {

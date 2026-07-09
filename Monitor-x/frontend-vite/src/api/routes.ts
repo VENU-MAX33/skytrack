@@ -1,4 +1,4 @@
-import type { Route } from './types';
+import type { Route, CompanyConfig } from './types';
 import { apiGet, apiPost, apiPut, apiDelete, ApiError } from './client';
 
 export async function getRoutes(): Promise<Route[]> {
@@ -14,7 +14,7 @@ export async function getRoute(id: number): Promise<Route | undefined> {
   }
 }
 
-export async function createRoute(data: Omit<Route, 'id'>): Promise<Route> {
+export async function createRoute(data: Omit<Route, 'id' | 'count'>): Promise<Route> {
   return apiPost<Route>('/api/routes', data);
 }
 
@@ -24,4 +24,12 @@ export async function updateRoute(id: number, data: Partial<Route>): Promise<Rou
 
 export async function deleteRoute(id: number): Promise<void> {
   await apiDelete(`/api/routes/${id}`);
+}
+
+export async function getCompanyConfig(): Promise<CompanyConfig> {
+  return apiGet<CompanyConfig>('/api/company-config');
+}
+
+export async function updateCompanyConfig(data: Partial<CompanyConfig>): Promise<CompanyConfig> {
+  return apiPut<CompanyConfig>('/api/company-config', data);
 }

@@ -55,6 +55,8 @@ export interface Driver {
   dlEffectiveFrom: string;
   dlExpiry: string;
   address: string;
+  aadhaar: string;
+  pan: string;
   inductionDate: string;
   firstVaccination: string;
   secondVaccination: string;
@@ -68,6 +70,15 @@ export interface Route {
   name: string;
   count: number;
   type: string;
+  destLat: number | null;
+  destLng: number | null;
+}
+
+export interface CompanyConfig {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
 }
 
 export interface Trip {
@@ -147,4 +158,26 @@ export interface VehiclePosition {
   lng: number;
   status: string;
   speed: number;
+}
+
+export interface LocationRequestDTO {
+  id: string;
+  employee: { id: string; name: string; contact: string };
+  currentAddress: string;
+  currentLatLong: string;
+  requestedAddress: string;
+  requestedLatLong: string;
+  status: string;
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string;
+  note: string;
+}
+
+export interface EmployeeDocumentDTO {
+  id: string;
+  name: string;
+  mimeType: string;
+  uploadedAt: string;
+  base64?: string;
 }

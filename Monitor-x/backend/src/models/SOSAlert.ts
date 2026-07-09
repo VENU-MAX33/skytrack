@@ -7,6 +7,8 @@ export interface SOSAlertDoc {
   tripId?: Types.ObjectId;
   driverId?: Types.ObjectId;
   location: string; // "lat,lng" if the employee granted geolocation
+  reason: string;   // preset label or custom text from employee
+  photoBase64: string; // base64 data URL of attached photo (empty if none)
   status: SosStatus;
   acknowledgedBy?: string;
   acknowledgedAt?: Date;
@@ -19,6 +21,8 @@ const sosSchema = new Schema<SOSAlertDoc>(
     tripId: { type: Schema.Types.ObjectId, ref: 'Trip', default: null },
     driverId: { type: Schema.Types.ObjectId, ref: 'Driver', default: null },
     location: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    photoBase64: { type: String, default: '' },
     status: { type: String, enum: ['open', 'acknowledged', 'resolved'], default: 'open' },
     acknowledgedBy: { type: String, default: '' },
     acknowledgedAt: { type: Date, default: null },

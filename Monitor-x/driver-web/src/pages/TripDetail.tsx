@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Phone, MapPin, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, CheckCircle2, Navigation, X, ExternalLink } from 'lucide-react';
 import {
   getDriverTrip,
   sendOtp,
@@ -8,7 +8,7 @@ import {
   startTrip,
   completeTrip,
 } from '../api/trips';
-import type { DriverTrip, DriverTripEmployee } from '../api/types';
+import type { DriverTrip, DriverTripEmployee, EmpLocationUpdate } from '../api/types';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 
@@ -22,6 +22,8 @@ export default function TripDetail() {
   const [trip, setTrip] = useState<DriverTrip | null>(null);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [empLoc, setEmpLoc] = useState<EmpLocationUpdate | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {
     getDriverTrip(id)
@@ -31,6 +33,21 @@ export default function TripDetail() {
 
   useEffect(() => load(), [load]);
   useEffect(() => on('trip:status', load), [on, load]);
+
+  // Listen for employee location shares for this trip
+  useEffect(() => {
+    return on('employee:location', (payload: unknown) => {
+      const upd = payload as EmpLocationUpdate;
+      if (upd.tripId === id) {
+        setEmpLoc(upd);
+        // Auto-dismiss after 30 seconds
+        if (dismissTimer.current) clearTimeout(dismissTimer.current);
+        dismissTimer.current = setTimeout(() => setEmpLoc(null), 30000);
+      }
+    });
+  }, [on, id]);
+
+  useEffect(() => () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); }, []);
 
   async function handleSendOtp(emp: DriverTripEmployee) {
     setBusy(`send-${emp.id}`);
@@ -84,6 +101,12 @@ export default function TripDetail() {
     }
   }
 
+  function minsAgo(ts: string) {
+    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+    if (diff < 1) return 'just now';
+    return `${diff} min ago`;
+  }
+
   if (!trip) return <div className="app-shell p-6 text-[#777]">Loading…</div>;
 
   const allVerified = trip.employees.every((e) => e.verified);
@@ -103,6 +126,32 @@ export default function TripDetail() {
           </div>
         </div>
       </header>
+
+      {/* Employee live location notification */}
+      {empLoc && (
+        <div className="mx-3 mt-3 rounded-xl border border-[#2e7d32] bg-[#f0faf0] p-3 flex items-start gap-3">
+          <Navigation size={18} className="text-[#2e7d32] mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[#1b5e20]">
+              {empLoc.empName} shared their location
+            </div>
+            <div className="text-[11px] text-[#555] mt-0.5">{minsAgo(empLoc.timestamp)}</div>
+          </div>
+          <div className="flex gap-2 items-center shrink-0">
+            <a
+              href={`https://maps.google.com/?q=${empLoc.lat},${empLoc.lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-[12px] bg-[#2e7d32] text-white px-3 py-1.5 rounded-lg font-semibold"
+            >
+              <ExternalLink size={13} /> Map
+            </a>
+            <button onClick={() => setEmpLoc(null)} className="text-[#777]">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="px-3 py-3">
         <div className={`text-[13px] font-semibold mb-2 ${trip.statusColor}`}>{trip.status}</div>

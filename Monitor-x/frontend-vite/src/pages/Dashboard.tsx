@@ -1,10 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AlertTriangle, Phone, MapPin, Save, Navigation } from "lucide-react";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
 import { getDashboardStats } from "../api";
 import type { DashboardStats } from "../api";
+import {
+  getSosAlerts,
+  acknowledgeSos,
+  getSosConfig,
+  updateSosConfig,
+  type SosAlert,
+} from "../api/sos";
 import { useToast } from "../context/ToastContext";
+import { useRealtime } from "../context/RealtimeContext";
 import { localToday } from "../lib/tripStatus";
 
 const REFRESH_SECONDS = 300;
@@ -24,7 +33,6 @@ const vendorPerformanceColumns = [
   { key: "completed", header: "Completed Trip Count", width: "150px" },
 ];
 
-// Deep links for stat tiles, keyed by the label the API returns.
 const STAT_LINKS: Record<string, string> = {
   "Total Rostered": "/rostering",
   Pending: "/rostering?status=pending",
@@ -55,6 +63,367 @@ function formatCountdown(seconds: number): string {
   return `${String(m).padStart(2, "0")} min ${String(s).padStart(2, "0")} sec`;
 }
 
+// ── SOS Alerts Panel ─────────────────────────────────────────────────────────
+type SosFilter = "all" | "open" | "acknowledged";
+
+function SosPanel() {
+  const toast = useToast();
+  const { sosAlerts: liveAlerts } = useRealtime();
+  const [alerts, setAlerts] = useState<SosAlert[]>([]);
+  const [filter, setFilter] = useState<SosFilter>("open");
+  const [alertPhone, setAlertPhone] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [ackBusy, setAckBusy] = useState<string | null>(null);
+
+  // Load initial alerts and config
+  useEffect(() => {
+    getSosAlerts().then(setAlerts).catch(() => {});
+    getSosConfig()
+      .then((c) => {
+        setAlertPhone(c.alertPhone);
+        setPhoneInput(c.alertPhone);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Prepend real-time alerts received via WebSocket
+  useEffect(() => {
+    if (!liveAlerts.length) return;
+    setAlerts((prev) => {
+      const ids = new Set(prev.map((a) => a.id));
+      const fresh = liveAlerts.filter((a) => !ids.has(a.id));
+      return fresh.length ? [...fresh, ...prev] : prev;
+    });
+  }, [liveAlerts]);
+
+  async function handleAcknowledge(id: string) {
+    setAckBusy(id);
+    try {
+      const updated = await acknowledgeSos(id);
+      setAlerts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      toast.success("SOS acknowledged");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to acknowledge");
+    } finally {
+      setAckBusy(null);
+    }
+  }
+
+  async function handleSavePhone() {
+    setSavingPhone(true);
+    try {
+      const result = await updateSosConfig(phoneInput.trim());
+      setAlertPhone(result.alertPhone);
+      toast.success("SOS alert number saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingPhone(false);
+    }
+  }
+
+  const filtered =
+    filter === "all" ? alerts : alerts.filter((a) => a.status === filter);
+  const openCount = alerts.filter((a) => a.status === "open").length;
+
+  return (
+    <div className="dashboard-card p-4 mt-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={18} className="text-[#D22630]" />
+          <h3 className="text-[14px] font-semibold text-[#222]">SOS Alerts</h3>
+          {openCount > 0 && (
+            <span className="bg-[#D22630] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+              {openCount} open
+            </span>
+          )}
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-1">
+          {(["all", "open", "acknowledged"] as SosFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-[12px] px-3 py-1 rounded-full border transition-colors ${
+                filter === f
+                  ? "bg-[#D22630] text-white border-[#D22630]"
+                  : "border-[#ddd] text-[#555]"
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Alerts table */}
+      {filtered.length === 0 ? (
+        <div className="text-center text-[13px] text-[#aaa] py-6">
+          No {filter === "all" ? "" : filter} SOS alerts
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="text-[#777] border-b border-[#eee]">
+                <th className="text-left py-2 pr-3 font-medium">Time</th>
+                <th className="text-left py-2 pr-3 font-medium">Employee</th>
+                <th className="text-left py-2 pr-3 font-medium">Reason</th>
+                <th className="text-left py-2 pr-3 font-medium">Driver</th>
+                <th className="text-left py-2 pr-3 font-medium">Status</th>
+                <th className="text-left py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((a) => (
+                <tr key={a.id} className="border-b border-[#f5f5f5] hover:bg-[#fafafa]">
+                  <td className="py-2 pr-3 whitespace-nowrap text-[#777]">
+                    {new Date(a.createdAt).toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    <br />
+                    <span className="text-[11px]">
+                      {new Date(a.createdAt).toLocaleDateString("en-GB")}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <div className="font-medium text-[#222]">{a.employee.name}</div>
+                    <div className="text-[#777]">{a.employee.contact}</div>
+                  </td>
+                  <td className="py-2 pr-3 max-w-[160px]">
+                    <span className="text-[#D22630] font-medium">
+                      {a.reason || "—"}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-[#555]">
+                    {a.driver ? `${a.driver.name}` : "—"}
+                  </td>
+                  <td className="py-2 pr-3">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                        a.status === "open"
+                          ? "bg-[#fde8e8] text-[#D22630]"
+                          : "bg-[#e8f5e9] text-[#2e7d32]"
+                      }`}
+                    >
+                      {a.status}
+                    </span>
+                  </td>
+                  <td className="py-2">
+                    <div className="flex items-center gap-1">
+                      {a.employee.contact && (
+                        <a
+                          href={`tel:${a.employee.contact}`}
+                          className="p-1.5 rounded border border-[#ddd] hover:bg-[#f5f5f5]"
+                          title="Call"
+                        >
+                          <Phone size={13} />
+                        </a>
+                      )}
+                      {a.location && (
+                        <a
+                          href={`https://maps.google.com/?q=${encodeURIComponent(a.location)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded border border-[#ddd] hover:bg-[#f5f5f5]"
+                          title="Map"
+                        >
+                          <MapPin size={13} />
+                        </a>
+                      )}
+                      {a.status === "open" && (
+                        <button
+                          onClick={() => handleAcknowledge(a.id)}
+                          disabled={ackBusy === a.id}
+                          className="text-[11px] px-2 py-1 rounded bg-[#D22630] text-white font-semibold disabled:opacity-50"
+                        >
+                          {ackBusy === a.id ? "…" : "Ack"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* SMS Alert Phone Config */}
+      <div className="mt-4 pt-4 border-t border-[#eee] flex items-center gap-2 flex-wrap">
+        <div className="text-[12px] text-[#555] font-medium whitespace-nowrap">
+          SOS SMS Alert Number:
+        </div>
+        <input
+          type="tel"
+          className="border border-[#ddd] rounded px-2 py-1 text-[12px] w-[180px] focus:outline-none focus:border-[#D22630]"
+          placeholder="e.g. 9876543210"
+          value={phoneInput}
+          onChange={(e) => setPhoneInput(e.target.value)}
+        />
+        {phoneInput !== alertPhone && (
+          <button
+            onClick={handleSavePhone}
+            disabled={savingPhone}
+            className="flex items-center gap-1 text-[12px] px-3 py-1 rounded bg-[#D22630] text-white font-semibold disabled:opacity-50"
+          >
+            <Save size={12} /> {savingPhone ? "Saving…" : "Save"}
+          </button>
+        )}
+        {alertPhone && phoneInput === alertPhone && (
+          <span className="text-[11px] text-[#2e7d32]">✓ Saved — alerts will SMS this number</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Live Employee Locations Panel ────────────────────────────────────────────
+type LocFilter = "all" | "5min" | "30min";
+
+const LOC_FILTERS: { key: LocFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "5min", label: "Last 5 min" },
+  { key: "30min", label: "Last 30 min" },
+];
+
+function relativeAge(ms: number): string {
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "just now";
+  if (min === 1) return "1 min ago";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  return `${h} h ${min % 60} min ago`;
+}
+
+function EmployeeLocationPanel() {
+  const { empLocations } = useRealtime();
+  const [filter, setFilter] = useState<LocFilter>("all");
+  const [, setTick] = useState(0);
+
+  // Re-render every 30s so relative ages and Fresh/Stale badges stay current
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const now = Date.now();
+  const windowMs =
+    filter === "5min" ? 5 * 60_000 : filter === "30min" ? 30 * 60_000 : Infinity;
+  const rows = empLocations
+    .filter((u) => now - new Date(u.timestamp).getTime() <= windowMs)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return (
+    <div className="dashboard-card p-4 mt-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Navigation size={18} className="text-[#0047B2]" />
+          <h3 className="text-[14px] font-semibold text-[#222]">Live Employee Locations</h3>
+          {rows.length > 0 && (
+            <span className="bg-[#0047B2] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+              {rows.length} active
+            </span>
+          )}
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-1">
+          {LOC_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`text-[12px] px-3 py-1 rounded-full border transition-colors ${
+                filter === f.key
+                  ? "bg-[#0047B2] text-white border-[#0047B2]"
+                  : "border-[#ddd] text-[#555]"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Locations table */}
+      {rows.length === 0 ? (
+        <div className="text-center text-[13px] text-[#aaa] py-6">
+          No live location updates yet — employees share location from their trip screen.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="text-[#777] border-b border-[#eee]">
+                <th className="text-left py-2 pr-3 font-medium">Time</th>
+                <th className="text-left py-2 pr-3 font-medium">Employee</th>
+                <th className="text-left py-2 pr-3 font-medium">Trip ID</th>
+                <th className="text-left py-2 pr-3 font-medium">Location</th>
+                <th className="text-left py-2 pr-3 font-medium">Map</th>
+                <th className="text-left py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((u) => {
+                const age = now - new Date(u.timestamp).getTime();
+                const fresh = age <= 5 * 60_000;
+                return (
+                  <tr key={u.empId} className="border-b border-[#f5f5f5] hover:bg-[#fafafa]">
+                    <td className="py-2 pr-3 whitespace-nowrap text-[#777]">
+                      {relativeAge(age)}
+                      <br />
+                      <span className="text-[11px]">
+                        {new Date(u.timestamp).toLocaleTimeString("en-GB", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <div className="font-medium text-[#222]">{u.empName}</div>
+                      <div className="text-[#777]">{u.empId}</div>
+                    </td>
+                    <td className="py-2 pr-3 text-[#555]">{u.tripId}</td>
+                    <td className="py-2 pr-3 font-mono text-[#555] whitespace-nowrap">
+                      {u.lat.toFixed(5)}, {u.lng.toFixed(5)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <a
+                        href={`https://maps.google.com/?q=${u.lat},${u.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded border border-[#ddd] hover:bg-[#f5f5f5] inline-flex"
+                        title="Open in Google Maps"
+                      >
+                        <MapPin size={13} />
+                      </a>
+                    </td>
+                    <td className="py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                          fresh ? "bg-[#e8f5e9] text-[#2e7d32]" : "bg-[#f0f0f0] text-[#888]"
+                        }`}
+                      >
+                        {fresh ? "Fresh" : "Stale"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,15 +508,17 @@ export default function Dashboard() {
 
       {/* Live Trips Stats */}
       <div className="mb-4">
-        <StatCard
-          title="Live Trips"
-          stats={withLinks(stats.liveTrips, LIVE_TRIP_LINKS)}
-          className="w-full"
-        />
+        <StatCard title="Live Trips" stats={withLinks(stats.liveTrips, LIVE_TRIP_LINKS)} className="w-full" />
       </div>
 
+      {/* SOS Alerts Panel */}
+      <SosPanel />
+
+      {/* Live Employee Locations Panel */}
+      <EmployeeLocationPanel />
+
       {/* Data Tables Grid */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4 mt-4">
         <DataTable
           title="Trips In Progress"
           titleTo="/live_trip_monitor?status=in-progress"

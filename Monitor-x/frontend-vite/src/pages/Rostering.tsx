@@ -332,11 +332,11 @@ export default function Rostering() {
                     const pickups = saved.filter((s: any) => s.tripType === 'pickup');
                     const drops = saved.filter((s: any) => s.tripType === 'drop');
                     if (pickups.length && drops.length) {
-                      display = `${pickups[0].shiftTime || pickups[0].timing || 'Login'} | ${drops[0].shiftTime || drops[0].timing || 'Logout'}`;
+                      display = `${(pickups[0] as any).shiftTime || (pickups[0] as any).timing || 'Login'} | ${(drops[0] as any).shiftTime || (drops[0] as any).timing || 'Logout'}`;
                     } else if (pickups.length) {
-                      display = `${pickups[0].shiftTime || pickups[0].timing || 'Login'}`;
+                      display = `${(pickups[0] as any).shiftTime || (pickups[0] as any).timing || 'Login'}`;
                     } else if (drops.length) {
-                      display = `${drops[0].shiftTime || drops[0].timing || 'Logout'}`;
+                      display = `${(drops[0] as any).shiftTime || (drops[0] as any).timing || 'Logout'}`;
                     }
                     bgColor = "#F4F0FF"; // Saved
                   }

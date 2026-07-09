@@ -29,3 +29,14 @@ export async function deleteDriver(name: string): Promise<void> {
 export async function setDriverActive(name: string, active: boolean): Promise<void> {
   await apiPut(`/api/drivers/${encodeURIComponent(name)}/active`, { active });
 }
+
+export interface DriverImportResult {
+  created: number;
+  skipped: number;
+  failed: number;
+  errors: { row: number; reason: string }[];
+}
+
+export async function importDrivers(drivers: Partial<Driver>[]): Promise<DriverImportResult> {
+  return apiPost<DriverImportResult>('/api/drivers/bulk', { drivers });
+}

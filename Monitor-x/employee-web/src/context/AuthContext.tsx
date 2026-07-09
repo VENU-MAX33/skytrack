@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { loginRequest } from '../api/auth';
+import { verifyOtp } from '../api/auth';
 import { TOKEN_KEY } from '../api/client';
 import type { EmployeeUser } from '../api/types';
 
 interface AuthContextValue {
   user: EmployeeUser | null;
-  login: (empId: string, password: string) => Promise<void>;
+  login: (phone: string, code: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -37,8 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:unauthorized', logout);
   }, [logout]);
 
-  const login = useCallback(async (empId: string, password: string) => {
-    const { token, user: u } = await loginRequest(empId, password);
+  const login = useCallback(async (phone: string, code: string) => {
+    const { token, user: u } = await verifyOtp(phone, code);
     localStorage.setItem(TOKEN_KEY, token);
     setUser(u);
   }, []);

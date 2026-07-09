@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
 import { Trip } from '../models/Trip.js';
+import { Employee } from '../models/Employee.js';
 import { SOSAlert } from '../models/SOSAlert.js';
+import { SosConfig } from '../models/SosConfig.js';
 import { User } from '../models/User.js';
 import { toSosDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { requireRole } from '../middleware/auth.js';
 import { createSos, acknowledgeSos } from '../services/sos.service.js';
+import { createNotification } from '../services/notification.service.js';
 import { emitSos, emitSosAck } from '../websocket/index.js';
 
 export const sosRouter = Router();
@@ -19,7 +22,12 @@ sosRouter.post(
   '/',
   requireRole('employee'),
   asyncHandler(async (req, res) => {
-    const { tripId, location } = req.body as { tripId?: string; location?: string };
+    const { tripId, location, reason, photoBase64 } = req.body as {
+      tripId?: string;
+      location?: string;
+      reason?: string;
+      photoBase64?: string;
+    };
 
     let driverObjectId: Types.ObjectId | undefined;
     let tripObjectId: Types.ObjectId | undefined;
@@ -31,16 +39,30 @@ sosRouter.post(
       }
     }
 
+    // Fetch employee name/contact for the SMS notification
+    const employee = await Employee.findById(req.auth!.sub);
+
     const alert = await createSos({
       employeeId: new Types.ObjectId(req.auth!.sub),
       tripId: tripObjectId,
       driverId: driverObjectId,
       location,
+      reason,
+      photoBase64,
+      employeeName: employee?.name,
+      employeeContact: employee?.contact,
     });
     await alert.populate(SOS_POPULATE);
     const dto = toSosDTO(alert as unknown as PopulatedSos);
 
     emitSos({ alert: dto, driverId: driverObjectId?.toString() });
+    await createNotification({
+      type: 'sos',
+      title: `SOS from ${dto.employee.name || 'Employee'}`,
+      body: dto.reason || dto.location || 'Emergency alert raised',
+      refId: dto.id,
+      link: '/',
+    });
     res.status(201).json(dto);
   })
 );
@@ -70,5 +92,30 @@ sosRouter.put(
     const dto = toSosDTO(updated as unknown as PopulatedSos);
     emitSosAck({ alert: dto, driverId: updated.driverId?.toString() });
     res.json(dto);
+  })
+);
+
+// GET /api/sos/config — admin gets alert phone config
+sosRouter.get(
+  '/config',
+  requireRole('admin'),
+  asyncHandler(async (_req, res) => {
+    const config = await SosConfig.findOne();
+    res.json({ alertPhone: config?.alertPhone ?? '' });
+  })
+);
+
+// PUT /api/sos/config — admin saves alert phone number
+sosRouter.put(
+  '/config',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const { alertPhone } = req.body as { alertPhone?: string };
+    const config = await SosConfig.findOneAndUpdate(
+      {},
+      { alertPhone: (alertPhone ?? '').trim() },
+      { upsert: true, new: true }
+    );
+    res.json({ alertPhone: config.alertPhone });
   })
 );

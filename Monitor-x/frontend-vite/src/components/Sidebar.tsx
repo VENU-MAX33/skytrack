@@ -32,6 +32,7 @@ const navigation: NavItem[] = [
     href: "#",
     children: [
       { icon: <Route className="w-[14px] h-[14px]" />, label: "Master Routing", href: "/master-routing" },
+      { icon: <Route className="w-[14px] h-[14px]" />, label: "Route Management", href: "/route-management" },
       { icon: <Users className="w-[14px] h-[14px]" />, label: "Rostering", href: "/rostering" },
       { icon: <Bus className="w-[14px] h-[14px]" />, label: "Trip Management", href: "/trip-management" },
     ],
@@ -50,6 +51,7 @@ const navigation: NavItem[] = [
     href: "#",
     children: [
       { icon: <Users className="w-[14px] h-[14px]" />, label: "Employee management", href: "/employee-management" },
+      { icon: <MapPin className="w-[14px] h-[14px]" />, label: "Location Requests", href: "/location-requests" },
       { icon: <Settings className="w-[14px] h-[14px]" />, label: "Activate / Deactivate", href: "/activate-deactivate" },
       { icon: <Car className="w-[14px] h-[14px]" />, label: "Vehicle", href: "/vehicle-management" },
       { icon: <User className="w-[14px] h-[14px]" />, label: "Driver", href: "/driver-management" },

@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { AlertTriangle, Phone, MapPin } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, Image } from 'lucide-react';
 import { acknowledgeSos, type SosAlert } from '../api/sos';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 
-/** Full-screen red pulsing SOS popup. Shows the most recent unacknowledged alert. */
 export default function SosAlertModal() {
   const { sosAlerts, dismissSos } = useRealtime();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
 
   const alert = sosAlerts[0];
   if (!alert) return null;
@@ -22,6 +22,7 @@ export default function SosAlertModal() {
     try {
       await acknowledgeSos(alert.id);
       dismissSos(alert.id);
+      setShowPhoto(false);
       toast.success('SOS acknowledged');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to acknowledge');
@@ -47,21 +48,55 @@ export default function SosAlertModal() {
             </div>
           </div>
         </div>
+
         <div className="p-5 space-y-2 text-[14px]">
           <Row label="Employee" value={`${alert.employee.name} (${alert.employee.id})`} />
           <Row label="Contact" value={alert.employee.contact || '—'} />
           {alert.driver && <Row label="Driver" value={`${alert.driver.name} (${alert.driver.contact})`} />}
           {alert.tripId && <Row label="Trip" value={alert.tripId} />}
+          {alert.reason && (
+            <div className="flex justify-between gap-3">
+              <span className="text-[#777777]">Reason</span>
+              <span className="font-semibold text-right text-[#D22630]">{alert.reason}</span>
+            </div>
+          )}
           <Row label="Location" value={alert.location || 'Not shared'} />
+
+          {alert.photoBase64 && (
+            <div>
+              <button
+                className="flex items-center gap-1 text-[13px] text-[#0047B2] font-medium mt-1"
+                onClick={() => setShowPhoto((v) => !v)}
+              >
+                <Image size={14} /> {showPhoto ? 'Hide photo' : 'View photo'}
+              </button>
+              {showPhoto && (
+                <img
+                  src={alert.photoBase64}
+                  alt="SOS photo"
+                  className="mt-2 w-full rounded-lg max-h-[200px] object-cover border border-[#eee]"
+                />
+              )}
+            </div>
+          )}
         </div>
+
         <div className="p-5 pt-0 flex gap-2">
           {alert.employee.contact && (
-            <a href={`tel:${alert.employee.contact}`} className="flex-1 flex items-center justify-center gap-2 h-11 rounded-md border border-[#E0E4E9] text-[14px] font-semibold">
+            <a
+              href={`tel:${alert.employee.contact}`}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-md border border-[#E0E4E9] text-[14px] font-semibold"
+            >
               <Phone size={16} /> Call
             </a>
           )}
           {mapsHref && (
-            <a href={mapsHref} target="_blank" rel="noreferrer" className="flex-1 flex items-center justify-center gap-2 h-11 rounded-md border border-[#E0E4E9] text-[14px] font-semibold">
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-md border border-[#E0E4E9] text-[14px] font-semibold"
+            >
               <MapPin size={16} /> Map
             </a>
           )}

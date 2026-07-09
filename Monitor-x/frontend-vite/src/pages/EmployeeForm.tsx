@@ -1,9 +1,10 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Users } from "lucide-react";
+import { Users, MapPin, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import FormField from "../components/FormField";
 import { getEmployee, createEmployee, updateEmployee, getRoutes } from "../api";
 import type { Employee, Route } from "../api";
+import { routeColor } from "../lib/routeColors";
 import { useToast } from "../context/ToastContext";
 
 const EMPTY: Employee = {
@@ -18,6 +19,16 @@ const EMPTY: Employee = {
 const INPUT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0047B2]";
 const SELECT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] bg-white";
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export default function EmployeeForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -28,15 +39,79 @@ export default function EmployeeForm() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof Employee, string>>>({});
   const [saving, setSaving] = useState(false);
+  const [fetchingLoc, setFetchingLoc] = useState(false);
+  const [routeStatus, setRouteStatus] = useState<{ match: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     getRoutes().then(setRoutes);
     if (id) getEmployee(id).then((e) => { if (e) setForm(e); });
   }, [id]);
 
+  const checkRouteMatch = useCallback((latLong: string, routeList: Route[]) => {
+    const parts = latLong.split(",").map((s) => parseFloat(s.trim()));
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+      setRouteStatus(null);
+      return;
+    }
+    const [lat, lng] = parts;
+    const configured = routeList.filter((r) => r.destLat && r.destLng);
+    if (configured.length === 0) {
+      setRouteStatus(null);
+      return;
+    }
+    let best: { name: string; dist: number } | null = null;
+    for (const r of configured) {
+      if (!r.destLat || !r.destLng) continue;
+      const dist = haversineKm(lat, lng, r.destLat, r.destLng);
+      if (dist <= 5 && (!best || dist < best.dist)) best = { name: r.name, dist };
+    }
+    if (best) {
+      // Auto-assign the nearest route unless the admin already picked a valid one
+      let autoAssigned = false;
+      setForm((f) => {
+        const manualChoice = f.route && routeList.some((r) => r.name === f.route);
+        if (manualChoice || f.route === best!.name) return f;
+        autoAssigned = true;
+        return { ...f, route: best!.name };
+      });
+      setRouteStatus({
+        match: `${autoAssigned ? "Auto-assigned to" : "Within"} Route: ${best.name} (${best.dist.toFixed(1)} km)`,
+        ok: true,
+      });
+    } else {
+      setRouteStatus({ match: "Not within any defined route area (5 km radius)", ok: false });
+    }
+  }, []);
+
   function set(field: keyof Employee, value: string) {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (field === "latLong") checkRouteMatch(value, routes);
+      return next;
+    });
     setErrors((e) => ({ ...e, [field]: undefined }));
+  }
+
+  async function fetchLocation() {
+    if (!form.address.trim()) { toast.error("Enter employee address first"); return; }
+    setFetchingLoc(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.address)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { "User-Agent": "MonitorX-TMS/1.0" } });
+      const data = await res.json();
+      if (data.length > 0) {
+        const latLong = `${parseFloat(data[0].lat)},${parseFloat(data[0].lon)}`;
+        setForm((f) => ({ ...f, latLong }));
+        checkRouteMatch(latLong, routes);
+        toast.success("Location fetched from address");
+      } else {
+        toast.error("Could not geocode address — enter lat/lng manually");
+      }
+    } catch {
+      toast.error("Geocoding failed — check network connection");
+    } finally {
+      setFetchingLoc(false);
+    }
   }
 
   function validate(): boolean {
@@ -44,6 +119,7 @@ export default function EmployeeForm() {
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.id.trim()) errs.id = "Employee ID is required";
     if (!form.contact.trim()) errs.contact = "Contact is required";
+    if (routeStatus && !routeStatus.ok) errs.latLong = "Location not in any route — cannot save";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -93,8 +169,13 @@ export default function EmployeeForm() {
               </select>
             </FormField>
 
-            <FormField label="Contact" required error={errors.contact}>
-              <input className={INPUT} value={form.contact} onChange={(e) => set("contact", e.target.value)} />
+            <FormField label="Contact (Jio Number)" required error={errors.contact}>
+              <input
+                className={INPUT}
+                value={form.contact}
+                onChange={(e) => set("contact", e.target.value)}
+                placeholder="10-digit mobile number"
+              />
             </FormField>
             <FormField label="Email">
               <input type="email" className={INPUT} value={form.email} onChange={(e) => set("email", e.target.value)} />
@@ -119,58 +200,84 @@ export default function EmployeeForm() {
               <input className={INPUT} value={form.distance} onChange={(e) => set("distance", e.target.value)} />
             </FormField>
 
+            {/* Address with Fetch Location button */}
             <FormField label="Address">
-              <input className={INPUT} value={form.address} onChange={(e) => set("address", e.target.value)} />
+              <div className="flex gap-2">
+                <input
+                  className={INPUT}
+                  value={form.address}
+                  onChange={(e) => set("address", e.target.value)}
+                  placeholder="Full address to auto-fetch location"
+                />
+                <button
+                  type="button"
+                  onClick={fetchLocation}
+                  disabled={fetchingLoc}
+                  className="shrink-0 bg-[#0047B2] text-white px-3 py-2 rounded text-[12px] hover:bg-[#003a94] disabled:opacity-60 flex items-center gap-1"
+                  title="Auto-fetch lat/lng from address"
+                >
+                  {fetchingLoc ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                  Fetch
+                </button>
+              </div>
+              <div className="text-[11px] text-[#999] mt-0.5">
+                Click Fetch to auto-fill lat/lng from address
+              </div>
             </FormField>
             <FormField label="Location">
               <input className={INPUT} value={form.location} onChange={(e) => set("location", e.target.value)} />
             </FormField>
-            <FormField label="Nodal Point">
-              <input className={INPUT} value={form.nodalPoint} onChange={(e) => set("nodalPoint", e.target.value)} />
-            </FormField>
-
             <FormField label="Pin Code">
               <input className={INPUT} value={form.pinCode} onChange={(e) => set("pinCode", e.target.value)} />
             </FormField>
-            <FormField label="Team Name">
-              <input className={INPUT} value={form.team} onChange={(e) => set("team", e.target.value)} />
-            </FormField>
-            <FormField label="Latitude / Longitude">
-              <input className={INPUT} placeholder="lat, lng" value={form.latLong} onChange={(e) => set("latLong", e.target.value)} />
+
+            {/* Lat/Lng with route validation */}
+            <FormField label="Latitude / Longitude" error={errors.latLong}>
+              <input
+                className={`${INPUT} ${routeStatus ? (routeStatus.ok ? "border-green-400" : "border-red-400") : ""}`}
+                placeholder="e.g. 12.9716,77.5946 (auto-filled by Fetch)"
+                value={form.latLong}
+                onChange={(e) => set("latLong", e.target.value)}
+              />
+              {routeStatus && (
+                <div className={`flex items-center gap-1 mt-1 text-[11px] ${routeStatus.ok ? "text-green-600" : "text-red-500"}`}>
+                  {routeStatus.ok
+                    ? <CheckCircle className="w-3 h-3" />
+                    : <AlertCircle className="w-3 h-3" />}
+                  {routeStatus.match}
+                </div>
+              )}
+              {form.latLong.trim() && !routeStatus && (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(form.latLong.trim())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-[#0047B2] underline mt-1 inline-block"
+                >
+                  Preview on Google Maps ↗
+                </a>
+              )}
             </FormField>
 
-            <FormField label="Shift Login">
-              <input className={INPUT} value={form.shiftLogin} onChange={(e) => set("shiftLogin", e.target.value)} />
-            </FormField>
-            <FormField label="Shift Logout">
-              <input className={INPUT} value={form.shiftLogout} onChange={(e) => set("shiftLogout", e.target.value)} />
-            </FormField>
             <FormField label="Route">
-              <select className={SELECT} value={form.route} onChange={(e) => set("route", e.target.value)}>
-                <option value="">-- Select Route --</option>
-                {routes.map((r) => (
-                  <option key={r.id} value={r.name}>{r.name}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="Fixed Shift">
-              <select className={SELECT} value={form.fixedShift} onChange={(e) => set("fixedShift", e.target.value)}>
-                <option>No</option>
-                <option>Yes</option>
-              </select>
-            </FormField>
-            <FormField label="Special Need">
-              <select className={SELECT} value={form.specialNeed} onChange={(e) => set("specialNeed", e.target.value)}>
-                <option>No</option>
-                <option>Yes</option>
-              </select>
-            </FormField>
-            <FormField label="Active">
-              <select className={SELECT} value={form.active} onChange={(e) => set("active", e.target.value)}>
-                <option>Yes</option>
-                <option>No</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full shrink-0 border border-white shadow"
+                  style={{
+                    backgroundColor: (() => {
+                      const r = routes.find((x) => x.name === form.route);
+                      return r ? routeColor(r.id) : "#999";
+                    })(),
+                  }}
+                  title={form.route || "No route assigned"}
+                />
+                <select className={SELECT} value={form.route} onChange={(e) => set("route", e.target.value)}>
+                  <option value="">-- Select Route (or auto-detected) --</option>
+                  {routes.map((r) => (
+                    <option key={r.id} value={r.name}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
             </FormField>
           </div>
         </div>

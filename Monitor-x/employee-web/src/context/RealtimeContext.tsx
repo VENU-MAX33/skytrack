@@ -2,15 +2,16 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
-import type { OtpNotification } from '../api/types';
+import type { OtpNotification, EmployeeTrip } from '../api/types';
 
 type Handler = (payload: unknown) => void;
 
 interface RealtimeContextValue {
   on: (event: string, handler: Handler) => () => void;
-  /** Most recent OTP the driver requested for this employee (dev-mode shows the code). */
   otp: OtpNotification | null;
   clearOtp: () => void;
+  newTrip: EmployeeTrip | null;
+  clearNewTrip: () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -19,6 +20,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const socketRef = useSocket(!!user);
   const [otp, setOtp] = useState<OtpNotification | null>(null);
+  const [newTrip, setNewTrip] = useState<EmployeeTrip | null>(null);
 
   const on = useCallback(
     (event: string, handler: Handler) => {
@@ -30,22 +32,27 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     [socketRef]
   );
 
-  // Show the OTP card whenever the driver sends one.
   useEffect(() => {
     if (!user) return;
     const socket = socketRef.current;
     if (!socket) return;
     const onOtp = (payload: OtpNotification) => setOtp(payload);
+    const onFrozen = (trip: EmployeeTrip) => setNewTrip(trip);
     socket.on('otp:sent', onOtp);
+    socket.on('trip:frozen', onFrozen);
     return () => {
       socket.off('otp:sent', onOtp);
+      socket.off('trip:frozen', onFrozen);
     };
   }, [socketRef, user]);
 
   const clearOtp = useCallback(() => setOtp(null), []);
+  const clearNewTrip = useCallback(() => setNewTrip(null), []);
 
   return (
-    <RealtimeContext.Provider value={{ on, otp, clearOtp }}>{children}</RealtimeContext.Provider>
+    <RealtimeContext.Provider value={{ on, otp, clearOtp, newTrip, clearNewTrip }}>
+      {children}
+    </RealtimeContext.Provider>
   );
 }
 

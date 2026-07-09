@@ -10,6 +10,8 @@ import type {
   DriverTrip,
   EmployeeTrip,
   SosAlert,
+  LocationRequestDTO,
+  EmployeeDocumentDTO,
 } from './types/dto.js';
 import type { EmployeeDoc } from './models/Employee.js';
 import type { VehicleDoc } from './models/Vehicle.js';
@@ -18,6 +20,8 @@ import type { RouteDoc } from './models/Route.js';
 import type { TripDoc } from './models/Trip.js';
 import type { RosterDoc } from './models/Roster.js';
 import type { SOSAlertDoc } from './models/SOSAlert.js';
+import type { LocationRequestDoc } from './models/LocationRequest.js';
+import type { EmployeeDocumentDoc } from './models/EmployeeDocument.js';
 import { STATUS_COLORS, type TripStatus } from './lib/statusBuckets.js';
 
 export function toEmployeeDTO(doc: HydratedDocument<EmployeeDoc>): Employee {
@@ -58,6 +62,8 @@ export function toDriverDTO(doc: HydratedDocument<DriverDoc>): Driver {
     dlEffectiveFrom: doc.dlEffectiveFrom,
     dlExpiry: doc.dlExpiry,
     address: doc.address,
+    aadhaar: doc.aadhaar,
+    pan: doc.pan,
     inductionDate: doc.inductionDate,
     firstVaccination: doc.firstVaccination,
     secondVaccination: doc.secondVaccination,
@@ -112,6 +118,8 @@ export function toRouteDTO(doc: HydratedDocument<RouteDoc>, count: number): Rout
     name: doc.name,
     count,
     type: doc.type,
+    destLat: doc.destLat ?? null,
+    destLng: doc.destLng ?? null,
   };
 }
 
@@ -218,6 +226,8 @@ export function toSosDTO(doc: PopulatedSos): SosAlert {
     id: doc._id.toString(),
     status: doc.status,
     location: doc.location,
+    reason: doc.reason ?? '',
+    photoBase64: doc.photoBase64 ?? '',
     createdAt: doc.createdAt.toISOString(),
     acknowledgedBy: doc.acknowledgedBy ?? '',
     acknowledgedAt: doc.acknowledgedAt ? doc.acknowledgedAt.toISOString() : null,
@@ -244,5 +254,38 @@ export function toRosterDTO(doc: PopulatedRoster): RosterEntry {
     route: doc.employeeId?.route ?? '',
     location: doc.employeeId?.location ?? '',
     status: doc.status,
+  };
+}
+
+type PopulatedLocationRequest = Omit<HydratedDocument<LocationRequestDoc>, 'employeeId'> & {
+  employeeId: HydratedDocument<EmployeeDoc> | null;
+};
+
+export function toLocationRequestDTO(doc: PopulatedLocationRequest): LocationRequestDTO {
+  return {
+    id: doc._id.toString(),
+    employee: {
+      id: doc.employeeId?.empId ?? '',
+      name: doc.employeeId?.name ?? '',
+      contact: doc.employeeId?.contact ?? '',
+    },
+    currentAddress: doc.currentAddress,
+    currentLatLong: doc.currentLatLong,
+    requestedAddress: doc.requestedAddress,
+    requestedLatLong: doc.requestedLatLong,
+    status: doc.status,
+    requestedAt: doc.requestedAt.toISOString(),
+    reviewedAt: doc.reviewedAt ? doc.reviewedAt.toISOString() : null,
+    reviewedBy: doc.reviewedBy ?? '',
+    note: doc.note ?? '',
+  };
+}
+
+export function toEmployeeDocDTO(doc: HydratedDocument<EmployeeDocumentDoc>): EmployeeDocumentDTO {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    mimeType: doc.mimeType,
+    uploadedAt: doc.uploadedAt.toISOString(),
   };
 }

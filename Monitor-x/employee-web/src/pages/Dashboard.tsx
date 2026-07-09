@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, Car, CarFront, Phone, Share2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
-import { getEmployeeTrips } from '../api/trips';
+import { Menu, Car, CarFront, Phone, Share2, KeyRound, LogOut, CheckCircle2, MapPin, Loader2, Navigation, X } from 'lucide-react';
+import { getEmployeeTrips, shareLocation, submitLocationRequest } from '../api/trips';
 import type { EmployeeTrip } from '../api/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -14,6 +14,13 @@ export default function Dashboard() {
   const toast = useToast();
   const { on, otp, clearOtp } = useRealtime();
   const [trips, setTrips] = useState<EmployeeTrip[]>([]);
+  const [sharing, setSharing] = useState(false);
+  const [showLocModal, setShowLocModal] = useState(false);
+  const [reqAddr, setReqAddr] = useState('');
+  const [reqLatLng, setReqLatLng] = useState('');
+  const [reqNote, setReqNote] = useState('');
+  const [fetchingAddr, setFetchingAddr] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
     getEmployeeTrips()
@@ -26,16 +33,13 @@ export default function Dashboard() {
     const offFrozen = on('trip:frozen', load);
     const offStatus = on('trip:status', load);
     const offVerified = on('employee:verified', load);
-    return () => {
-      offFrozen();
-      offStatus();
-      offVerified();
-    };
-  }, [on, load]);
+    const offLocApproved = on('location:request:approved', () => {
+      toast.success('Your location has been updated by admin!');
+    });
+    return () => { offFrozen(); offStatus(); offVerified(); offLocApproved(); };
+  }, [on, load, toast]);
 
-  // The most relevant trip: an ongoing one, else the soonest upcoming.
-  const current =
-    trips.find((t) => ONGOING.includes(t.status)) ?? trips[0] ?? null;
+  const current = trips.find((t) => ONGOING.includes(t.status)) ?? trips[0] ?? null;
 
   function share() {
     const url = current ? `${window.location.origin}/trip/${current.id}` : window.location.origin;
@@ -44,6 +48,72 @@ export default function Dashboard() {
     } else {
       navigator.clipboard?.writeText(url);
       toast.success('Trip link copied');
+    }
+  }
+
+  async function handleShareLocation() {
+    if (!current) return;
+    setSharing(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
+      );
+      await shareLocation(current.id, pos.coords.latitude, pos.coords.longitude);
+      toast.success('Location shared with driver');
+    } catch {
+      toast.error('Could not get location — check GPS permissions');
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function fetchAddrLatLng() {
+    if (!reqAddr.trim()) { toast.error('Enter an address first'); return; }
+    setFetchingAddr(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(reqAddr)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'MonitorX-TMS/1.0' } });
+      const data = await res.json() as Array<{ lat: string; lon: string }>;
+      if (data.length > 0) {
+        setReqLatLng(`${parseFloat(data[0].lat)},${parseFloat(data[0].lon)}`);
+        toast.success('Location fetched');
+      } else {
+        toast.error('Could not find address — try a more specific one');
+      }
+    } catch {
+      toast.error('Geocoding failed — check network');
+    } finally {
+      setFetchingAddr(false);
+    }
+  }
+
+  async function useCurrentGps() {
+    setFetchingAddr(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
+      );
+      setReqLatLng(`${pos.coords.latitude},${pos.coords.longitude}`);
+      toast.success('GPS location captured');
+    } catch {
+      toast.error('Could not get GPS — check permissions');
+    } finally {
+      setFetchingAddr(false);
+    }
+  }
+
+  async function handleSubmitRequest() {
+    if (!reqLatLng.trim()) { toast.error('Fetch or capture your location first'); return; }
+    setSubmitting(true);
+    try {
+      await submitLocationRequest({ requestedAddress: reqAddr, requestedLatLong: reqLatLng, note: reqNote });
+      toast.success('Location update request submitted');
+      setShowLocModal(false);
+      setReqAddr(''); setReqLatLng(''); setReqNote('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not submit request');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -115,16 +185,127 @@ export default function Dashboard() {
                 <Phone size={18} /> Call Driver
               </a>
             )}
+            {/* Share live location to driver */}
+            {current.frozen && (
+              <button
+                className="btn btn-green w-full"
+                onClick={handleShareLocation}
+                disabled={sharing}
+                style={{ background: '#1b5e20' }}
+              >
+                {sharing
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : <MapPin size={18} />}
+                {sharing ? 'Getting location…' : 'Share My Location with Driver'}
+              </button>
+            )}
             <button className="btn btn-blue w-full" onClick={share}>
               <Share2 size={18} /> Share trip link with family
+            </button>
+            {/* Request permanent location update */}
+            <button
+              className="btn btn-outline w-full"
+              onClick={() => setShowLocModal(true)}
+            >
+              <Navigation size={18} /> Request Location Update
             </button>
           </div>
         </div>
       ) : (
-        <div className="text-center text-[#999] text-[14px] py-10">No assigned trip yet</div>
+        <div className="px-4 mt-4 space-y-3">
+          <div className="text-center text-[#999] text-[14px] py-6">No assigned trip yet</div>
+          <button
+            className="btn btn-outline w-full"
+            onClick={() => setShowLocModal(true)}
+          >
+            <Navigation size={18} /> Request Location Update
+          </button>
+        </div>
       )}
 
       <SosButton tripId={current?.id} />
+
+      {/* Location Update Request Modal */}
+      {showLocModal && (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/60">
+          <div className="card w-full max-w-[480px] rounded-b-none p-5 pb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="font-bold text-[16px]">Request Location Update</div>
+              <button onClick={() => setShowLocModal(false)} className="text-[#777]">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="text-[12px] text-[#777] mb-3">
+              Submit a request to update your registered pickup address. Admin will review and approve.
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[12px] text-[#555] font-medium">New Address</label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  className="input flex-1 text-[13px]"
+                  placeholder="Enter full address"
+                  value={reqAddr}
+                  onChange={(e) => setReqAddr(e.target.value)}
+                />
+                <button
+                  className="btn btn-outline !min-h-[40px] !px-3 text-[12px] shrink-0"
+                  onClick={fetchAddrLatLng}
+                  disabled={fetchingAddr}
+                >
+                  {fetchingAddr ? <Loader2 size={14} className="animate-spin" /> : 'Fetch'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  className="input flex-1 text-[13px]"
+                  placeholder="Auto-filled after Fetch or GPS"
+                  value={reqLatLng}
+                  onChange={(e) => setReqLatLng(e.target.value)}
+                  readOnly
+                />
+                <button
+                  className="btn btn-outline !min-h-[40px] !px-3 text-[12px] shrink-0"
+                  onClick={useCurrentGps}
+                  disabled={fetchingAddr}
+                >
+                  {fetchingAddr ? <Loader2 size={14} className="animate-spin" /> : <><MapPin size={14} /> GPS</>}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[12px] text-[#555] font-medium">Note (optional)</label>
+              <textarea
+                className="input text-[13px] resize-none mt-1"
+                rows={2}
+                placeholder="e.g. Moved to a new flat nearby"
+                value={reqNote}
+                onChange={(e) => setReqNote(e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button className="btn btn-outline flex-1" onClick={() => setShowLocModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn flex-1 text-white"
+                style={{ background: '#0047B2' }}
+                onClick={handleSubmitRequest}
+                disabled={submitting || !reqLatLng.trim()}
+              >
+                {submitting ? 'Submitting…' : 'Submit Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

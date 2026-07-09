@@ -11,6 +11,8 @@ export interface DriverDoc {
   dlEffectiveFrom: string;
   dlExpiry: string;
   address: string;
+  aadhaar: string;
+  pan: string;
   inductionDate: string;
   firstVaccination: string;
   secondVaccination: string;
@@ -33,6 +35,8 @@ const driverSchema = new Schema<DriverDoc>({
   dlEffectiveFrom: { type: String, default: '' },
   dlExpiry: { type: String, default: '' },
   address: { type: String, default: '' },
+  aadhaar: { type: String, default: '' },
+  pan: { type: String, default: '' },
   inductionDate: { type: String, default: '' },
   firstVaccination: { type: String, default: '' },
   secondVaccination: { type: String, default: '' },

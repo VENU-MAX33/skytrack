@@ -17,6 +17,7 @@ const EMPTY: Vehicle = {
 
 const INPUT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0047B2]";
 const SELECT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] bg-white";
+const MODELS = ["SEDAN", "SUV", "HATCHBACK"];
 
 export default function VehicleForm() {
   const { id } = useParams<{ id: string }>();
@@ -28,10 +29,16 @@ export default function VehicleForm() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof Vehicle, string>>>({});
   const [saving, setSaving] = useState(false);
+  const [otherModel, setOtherModel] = useState(false);
 
   useEffect(() => {
     getDrivers().then(setDrivers);
-    if (id) getVehicle(decodeURIComponent(id)).then((v) => { if (v) setForm(v); });
+    if (id) getVehicle(decodeURIComponent(id)).then((v) => {
+      if (v) {
+        setForm(v);
+        if (v.model && !MODELS.includes(v.model)) setOtherModel(true);
+      }
+    });
   }, [id]);
 
   function set(field: keyof Vehicle, value: string) {
@@ -80,13 +87,27 @@ export default function VehicleForm() {
             <FormField label="Vehicle RTO No." required error={errors.rtoNo}>
               <input className={INPUT} value={form.rtoNo} onChange={(e) => set("rtoNo", e.target.value)} disabled={isEdit} />
             </FormField>
-            <FormField label="Seat Count">
-              <input className={INPUT} value={form.seatCount} onChange={(e) => set("seatCount", e.target.value)} />
-            </FormField>
             <FormField label="Model">
-              <input className={INPUT} value={form.model} onChange={(e) => set("model", e.target.value)} />
+              <select
+                className={SELECT}
+                value={otherModel ? "__other__" : form.model}
+                onChange={(e) => {
+                  if (e.target.value === "__other__") { setOtherModel(true); set("model", ""); }
+                  else { setOtherModel(false); set("model", e.target.value); }
+                }}
+              >
+                {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                <option value="__other__">Other (type below)…</option>
+              </select>
+              {otherModel && (
+                <input
+                  className={`${INPUT} mt-2`}
+                  value={form.model}
+                  onChange={(e) => set("model", e.target.value)}
+                  placeholder="Type model name — it saves with the vehicle"
+                />
+              )}
             </FormField>
-
             <FormField label="Vehicle Type">
               <select className={SELECT} value={form.vehicleType} onChange={(e) => set("vehicleType", e.target.value)}>
                 <option>4 Seater</option>
@@ -94,6 +115,7 @@ export default function VehicleForm() {
                 <option>12 Seater</option>
               </select>
             </FormField>
+
             <FormField label="Vendor">
               <select className={SELECT} value={form.vendor} onChange={(e) => set("vendor", e.target.value)}>
                 <option>RGL</option>
@@ -107,13 +129,10 @@ export default function VehicleForm() {
                 <option>Electric</option>
               </select>
             </FormField>
-
-            <FormField label="Billing Type">
-              <input className={INPUT} value={form.billingType} onChange={(e) => set("billingType", e.target.value)} />
-            </FormField>
             <FormField label="IMEI Number">
               <input className={INPUT} value={form.imei} onChange={(e) => set("imei", e.target.value)} />
             </FormField>
+
             <FormField label="Driver">
               <select className={SELECT} value={form.driver} onChange={(e) => set("driver", e.target.value)}>
                 <option value="">-- Select Driver --</option>
@@ -122,38 +141,25 @@ export default function VehicleForm() {
                 ))}
               </select>
             </FormField>
-
-            <FormField label="Driver Contact">
-              <input className={INPUT} value={form.driverContact} onChange={(e) => set("driverContact", e.target.value)} />
-            </FormField>
-            <FormField label="Induction Date">
-              <input type="date" className={INPUT} value={form.inductionDate} onChange={(e) => set("inductionDate", e.target.value)} />
-            </FormField>
             <FormField label="Tax Expiry Date">
               <input type="date" className={INPUT} value={form.taxExpiry} onChange={(e) => set("taxExpiry", e.target.value)} />
             </FormField>
-
             <FormField label="Insurance End Date">
               <input type="date" className={INPUT} value={form.insuranceEnd} onChange={(e) => set("insuranceEnd", e.target.value)} />
             </FormField>
+
             <FormField label="Permit End Date">
               <input type="date" className={INPUT} value={form.permitEnd} onChange={(e) => set("permitEnd", e.target.value)} />
             </FormField>
             <FormField label="FC Expiry Date">
               <input type="date" className={INPUT} value={form.fcExpiry} onChange={(e) => set("fcExpiry", e.target.value)} />
             </FormField>
-
             <FormField label="Emission Expiry Date">
               <input type="date" className={INPUT} value={form.emissionExpiry} onChange={(e) => set("emissionExpiry", e.target.value)} />
             </FormField>
+
             <FormField label="Maintenance Due Date">
               <input type="date" className={INPUT} value={form.maintenanceDue} onChange={(e) => set("maintenanceDue", e.target.value)} />
-            </FormField>
-            <FormField label="Active">
-              <select className={SELECT} value={form.active} onChange={(e) => set("active", e.target.value)}>
-                <option>Yes</option>
-                <option>No</option>
-              </select>
             </FormField>
           </div>
         </div>

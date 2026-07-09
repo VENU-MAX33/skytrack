@@ -2,16 +2,18 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
-import type { SosAlert } from '../api/types';
+import type { SosAlert, DriverTrip, EmpLocationUpdate } from '../api/types';
 
 type Handler = (payload: unknown) => void;
 
 interface RealtimeContextValue {
-  /** Subscribe to a server event; returns an unsubscribe fn. */
   on: (event: string, handler: Handler) => () => void;
-  /** Latest unacknowledged SOS alert (drives the red popup), or null. */
   sosAlert: SosAlert | null;
   clearSos: () => void;
+  newTrip: DriverTrip | null;
+  clearNewTrip: () => void;
+  empLocation: EmpLocationUpdate | null;
+  clearEmpLocation: () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -20,6 +22,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const socketRef = useSocket(!!user);
   const [sosAlert, setSosAlert] = useState<SosAlert | null>(null);
+  const [newTrip, setNewTrip] = useState<DriverTrip | null>(null);
+  const [empLocation, setEmpLocation] = useState<EmpLocationUpdate | null>(null);
 
   const on = useCallback(
     (event: string, handler: Handler) => {
@@ -31,25 +35,32 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     [socketRef]
   );
 
-  // Global SOS listener — drivers see the same red popup as admins.
   useEffect(() => {
     if (!user) return;
     const socket = socketRef.current;
     if (!socket) return;
     const onSos = (alert: SosAlert) => setSosAlert(alert);
     const onAck = () => setSosAlert(null);
+    const onFrozen = (trip: DriverTrip) => setNewTrip(trip);
+    const onEmpLoc = (upd: EmpLocationUpdate) => setEmpLocation(upd);
     socket.on('sos:alert', onSos);
     socket.on('sos:acknowledged', onAck);
+    socket.on('trip:frozen', onFrozen);
+    socket.on('employee:location', onEmpLoc);
     return () => {
       socket.off('sos:alert', onSos);
       socket.off('sos:acknowledged', onAck);
+      socket.off('trip:frozen', onFrozen);
+      socket.off('employee:location', onEmpLoc);
     };
   }, [socketRef, user]);
 
   const clearSos = useCallback(() => setSosAlert(null), []);
+  const clearNewTrip = useCallback(() => setNewTrip(null), []);
+  const clearEmpLocation = useCallback(() => setEmpLocation(null), []);
 
   return (
-    <RealtimeContext.Provider value={{ on, sosAlert, clearSos }}>
+    <RealtimeContext.Provider value={{ on, sosAlert, clearSos, newTrip, clearNewTrip, empLocation, clearEmpLocation }}>
       {children}
     </RealtimeContext.Provider>
   );

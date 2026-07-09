@@ -99,3 +99,41 @@ export function emitSosAck(payload: { alert: unknown; driverId?: string }): void
   i.to(rooms.admin).emit('sos:acknowledged', payload.alert);
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('sos:acknowledged', payload.alert);
 }
+
+/** Broadcast an employee's live GPS location to their trip's driver and to admins. */
+export function emitEmployeeLocation(payload: {
+  employeeMongoId: string;
+  empId: string;
+  empName: string;
+  tripId: string;
+  lat: number;
+  lng: number;
+  timestamp: string;
+  driverMongoId?: string;
+}): void {
+  const i = getIo();
+  if (payload.driverMongoId) {
+    i.to(rooms.driver(payload.driverMongoId)).emit('employee:location', payload);
+  }
+  i.to(rooms.admin).emit('employee:location', payload);
+}
+
+/** Notify admin + employee that a location change request has been submitted. */
+export function emitLocationRequestNew(payload: unknown): void {
+  getIo().to(rooms.admin).emit('location:request:new', payload);
+}
+
+/** Push a new dashboard notification (SOS, location change, …) to admins. */
+export function emitNotification(payload: unknown): void {
+  getIo().to(rooms.admin).emit('notification:new', payload);
+}
+
+/** Notify admin + the requesting employee that their location request was approved. */
+export function emitLocationRequestApproved(payload: {
+  employeeMongoId: string;
+  request: unknown;
+}): void {
+  const i = getIo();
+  i.to(rooms.admin).emit('location:request:approved', payload.request);
+  i.to(rooms.employee(payload.employeeMongoId)).emit('location:request:approved', payload.request);
+}
