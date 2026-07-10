@@ -1,5 +1,5 @@
-import { apiPost } from './client';
-import type { EmployeeUser } from './types';
+import { apiGet, apiPost } from './client';
+import type { EmployeeUser, EmployeeProfile } from './types';
 
 interface OtpResponse {
   sent: boolean;
@@ -17,4 +17,8 @@ export function requestOtp(phone: string): Promise<OtpResponse> {
 
 export function verifyOtp(phone: string, code: string): Promise<LoginResponse> {
   return apiPost<LoginResponse>('/api/employee/verify-otp', { phone, code });
+}
+
+export function getEmployeeProfile(): Promise<EmployeeProfile> {
+  return apiGet<EmployeeProfile>('/api/employee/me');
 }

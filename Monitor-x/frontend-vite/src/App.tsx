@@ -20,9 +20,11 @@ import VehicleForm from "./pages/VehicleForm";
 import DriverManagement from "./pages/DriverManagement";
 import DriverForm from "./pages/DriverForm";
 import VehicleTracking from "./pages/VehicleTracking";
-import RouteForm from "./pages/RouteForm";
 import RouteManagement from "./pages/RouteManagement";
 import LocationRequests from "./pages/LocationRequests";
+import Reports from "./pages/Reports";
+import StaffManagement from "./pages/StaffManagement";
+import Feedback from "./pages/Feedback";
 
 function App() {
   return (
@@ -41,8 +43,6 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/master-routing" element={<MasterRouting />} />
-              <Route path="/master-routing/new" element={<RouteForm />} />
-              <Route path="/master-routing/edit/:id" element={<RouteForm />} />
               <Route path="/route-management" element={<RouteManagement />} />
               <Route path="/rostering" element={<Rostering />} />
               <Route path="/trip-management" element={<TripManagement />} />
@@ -59,6 +59,9 @@ function App() {
               <Route path="/driver-management/edit/:id" element={<DriverForm />} />
               <Route path="/vehicle-tracking" element={<VehicleTracking />} />
               <Route path="/location-requests" element={<LocationRequests />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/staff-management" element={<StaffManagement />} />
+              <Route path="/feedback" element={<Feedback />} />
             </Route>
           </Route>
             </Routes>

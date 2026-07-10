@@ -22,6 +22,21 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Beyond this the location is almost certainly wrong (different city), so reject.
+const MAX_ROUTE_DIST_KM = 50;
+
+// A mobile number can belong to only one employee (excludeEmpId skips the record being edited).
+async function assertContactUnique(contact: string | undefined, excludeEmpId?: string): Promise<void> {
+  const c = contact?.trim();
+  if (!c) return;
+  const query: Record<string, unknown> = { contact: c };
+  if (excludeEmpId) query.empId = { $ne: excludeEmpId };
+  const existing = await Employee.findOne(query);
+  if (existing) {
+    throw new HttpError(409, `This mobile number is already registered to employee ${existing.name} (${existing.empId})`);
+  }
+}
+
 async function validateAndAutoAssignRoute(latLong: string | undefined): Promise<string | null> {
   if (!latLong?.trim()) return null;
   const parts = latLong.split(',').map((s) => parseFloat(s.trim()));
@@ -31,22 +46,23 @@ async function validateAndAutoAssignRoute(latLong: string | undefined): Promise<
   const routes = await Route.find({ destLat: { $ne: null }, destLng: { $ne: null } });
   if (routes.length === 0) return null; // no routes configured yet — skip validation
 
+  // Always connect the employee to the NEAREST route, however far.
   let closestRoute: { name: string; dist: number } | null = null;
   for (const r of routes) {
     if (r.destLat == null || r.destLng == null) continue;
     const dist = haversineKm(empLat, empLng, r.destLat, r.destLng);
-    if (dist <= 5 && (!closestRoute || dist < closestRoute.dist)) {
+    if (!closestRoute || dist < closestRoute.dist) {
       closestRoute = { name: r.name, dist };
     }
   }
 
-  if (!closestRoute) {
+  if (closestRoute && closestRoute.dist > MAX_ROUTE_DIST_KM) {
     throw new HttpError(
       422,
-      'Employee location is not within any defined route area (5 km radius). Please create a route that covers this area first.'
+      `Employee location is ${closestRoute.dist.toFixed(0)} km from the nearest route (${closestRoute.name}) — the location looks wrong, please verify the address.`
     );
   }
-  return closestRoute.name;
+  return closestRoute?.name ?? null;
 }
 
 employeesRouter.get(
@@ -73,6 +89,7 @@ employeesRouter.post(
     if (!body.id || !body.name) throw new HttpError(400, 'id and name are required');
     const exists = await Employee.findOne({ empId: body.id });
     if (exists) throw new HttpError(409, `Employee ${body.id} already exists`);
+    await assertContactUnique(body.contact);
 
     const autoRoute = await validateAndAutoAssignRoute(body.latLong);
     const data = fromDTO(body);
@@ -101,6 +118,7 @@ employeesRouter.put(
   '/:id',
   asyncHandler(async (req, res) => {
     const body = req.body as Partial<EmployeeDTO>;
+    await assertContactUnique(body.contact, req.params.id);
     const autoRoute = await validateAndAutoAssignRoute(body.latLong);
     const data = fromDTO(body);
     if (autoRoute && !body.route) data.route = autoRoute;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertTriangle, Phone, MapPin, Save, Navigation } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Save, Navigation, Trash2 } from "lucide-react";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
 import { getDashboardStats } from "../api";
@@ -8,13 +8,16 @@ import type { DashboardStats } from "../api";
 import {
   getSosAlerts,
   acknowledgeSos,
+  deleteSos,
   getSosConfig,
   updateSosConfig,
   type SosAlert,
 } from "../api/sos";
 import { useToast } from "../context/ToastContext";
 import { useRealtime } from "../context/RealtimeContext";
+import { useAuth } from "../context/AuthContext";
 import { localToday } from "../lib/tripStatus";
+import { StatIcon } from "../lib/statIcons";
 
 const REFRESH_SECONDS = 300;
 
@@ -68,6 +71,8 @@ type SosFilter = "all" | "open" | "acknowledged";
 
 function SosPanel() {
   const toast = useToast();
+  const { user } = useAuth();
+  const isMainAdmin = user?.role === "admin"; // staff accounts cannot delete
   const { sosAlerts: liveAlerts } = useRealtime();
   const [alerts, setAlerts] = useState<SosAlert[]>([]);
   const [filter, setFilter] = useState<SosFilter>("open");
@@ -105,6 +110,20 @@ function SosPanel() {
       toast.success("SOS acknowledged");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to acknowledge");
+    } finally {
+      setAckBusy(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this SOS alert permanently?")) return;
+    setAckBusy(id);
+    try {
+      await deleteSos(id);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+      toast.success("SOS alert deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {
       setAckBusy(null);
     }
@@ -244,6 +263,16 @@ function SosPanel() {
                           {ackBusy === a.id ? "…" : "Ack"}
                         </button>
                       )}
+                      {isMainAdmin && (
+                        <button
+                          onClick={() => handleDelete(a.id)}
+                          disabled={ackBusy === a.id}
+                          className="p-1.5 rounded border border-[#ddd] hover:bg-[#fde8e8] text-[#D22630] disabled:opacity-50"
+                          title="Delete alert (main admin only)"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -301,7 +330,9 @@ function relativeAge(ms: number): string {
 }
 
 function EmployeeLocationPanel() {
-  const { empLocations } = useRealtime();
+  const { empLocations, removeEmpLocation, clearEmpLocations } = useRealtime();
+  const { user } = useAuth();
+  const isMainAdmin = user?.role === "admin"; // staff accounts cannot delete
   const [filter, setFilter] = useState<LocFilter>("all");
   const [, setTick] = useState(0);
 
@@ -333,7 +364,7 @@ function EmployeeLocationPanel() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
           {LOC_FILTERS.map((f) => (
             <button
               key={f.key}
@@ -347,6 +378,15 @@ function EmployeeLocationPanel() {
               {f.label}
             </button>
           ))}
+          {isMainAdmin && empLocations.length > 0 && (
+            <button
+              onClick={() => { if (confirm("Clear all live location entries?")) clearEmpLocations(); }}
+              className="text-[12px] px-3 py-1 rounded-full border border-[#D22630] text-[#D22630] hover:bg-[#fde8e8] transition-colors flex items-center gap-1"
+              title="Clear the list (main admin only)"
+            >
+              <Trash2 size={12} /> Clear all
+            </button>
+          )}
         </div>
       </div>
 
@@ -366,6 +406,7 @@ function EmployeeLocationPanel() {
                 <th className="text-left py-2 pr-3 font-medium">Location</th>
                 <th className="text-left py-2 pr-3 font-medium">Map</th>
                 <th className="text-left py-2 font-medium">Status</th>
+                {isMainAdmin && <th className="text-left py-2 font-medium">Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -412,6 +453,17 @@ function EmployeeLocationPanel() {
                         {fresh ? "Fresh" : "Stale"}
                       </span>
                     </td>
+                    {isMainAdmin && (
+                      <td className="py-2">
+                        <button
+                          onClick={() => removeEmpLocation(u.empId)}
+                          className="p-1.5 rounded border border-[#ddd] hover:bg-[#fde8e8] text-[#D22630]"
+                          title="Remove this entry (main admin only)"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -561,7 +613,10 @@ export default function Dashboard() {
           }
         />
         <div className="dashboard-card p-4">
-          <h3 className="text-[14px] font-semibold text-[#222222] mb-3">Approval</h3>
+          <h3 className="text-[14px] font-semibold text-[#222222] mb-3 flex items-center gap-2">
+            <StatIcon label="Approval" />
+            Approval
+          </h3>
           <div className="space-y-3">
             <div className="border-b border-[#E0E4E9] pb-2">
               <div className="text-[13px] font-medium text-[#222222] mb-1">Rostering</div>

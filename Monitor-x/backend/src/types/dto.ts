@@ -90,6 +90,10 @@ export interface CompanyConfig {
   address: string;
   lat: number;
   lng: number;
+  /** Company logo as a data-URL; replaces the initials badge in the header. */
+  logoBase64: string;
+  /** Vendor (cab company) names managed by the admin. */
+  vendors: string[];
 }
 
 export interface Trip {
@@ -178,6 +182,8 @@ export interface RosterEntry {
   id: string;
   name: string;
   empId: string;
+  date: string;
+  tripType: string; // 'pickup' | 'drop'
   shiftTime: string;
   route: string;
   location?: string;
@@ -227,6 +233,57 @@ export interface TripFilters {
   status?: string;
 }
 
+// ---- Reports ----
+
+export type ReportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface TripReportRow {
+  id: string; // tripId
+  date: string;
+  type: string;
+  shiftTime: string;
+  status: string;
+  route: string;
+  vehicleNo: string;
+  vendor: string;
+  driverName: string;
+  driverContact: string;
+  escort: string;
+  empCount: number;
+  verifiedCount: number;
+  employeeIds: string; // "; " joined empIds
+  employeeNames: string; // "; " joined names
+  startedAt: string;
+  completedAt: string;
+}
+
+export interface ReportTotals {
+  trips: number;
+  completed: number;
+  inProgress: number;
+  notStarted: number;
+  cancelled: number;
+  employeesTransported: number;
+  verifiedEmployees: number;
+}
+
+export interface ReportVendorRow {
+  vendor: string;
+  trips: number;
+  completed: number;
+}
+
+export interface ReportSummary {
+  period: ReportPeriod;
+  from: string;
+  to: string;
+  label: string;
+  totals: ReportTotals;
+  statusBreakdown: Record<string, number>;
+  vendorBreakdown: ReportVendorRow[];
+  trips: TripReportRow[];
+}
+
 export interface EmployeeLocationUpdate {
   employeeMongoId: string;
   empId: string;
@@ -257,4 +314,12 @@ export interface EmployeeDocumentDTO {
   name: string;
   mimeType: string;
   uploadedAt: string;
+}
+
+export interface FeedbackDTO {
+  id: string;
+  employee: { id: string; name: string; contact: string };
+  message: string;
+  read: boolean;
+  submittedAt: string;
 }

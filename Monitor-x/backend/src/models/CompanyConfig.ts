@@ -5,6 +5,10 @@ export interface CompanyConfigDoc {
   address: string;
   lat: number;
   lng: number;
+  /** Company logo as a data-URL; shown in the header instead of initials. */
+  logoBase64: string;
+  /** Vendor (cab company) names managed by the admin. */
+  vendors: string[];
 }
 
 const companyConfigSchema = new Schema<CompanyConfigDoc>({
@@ -12,6 +16,8 @@ const companyConfigSchema = new Schema<CompanyConfigDoc>({
   address: { type: String, default: '' },
   lat: { type: Number, default: 0 },
   lng: { type: Number, default: 0 },
+  logoBase64: { type: String, default: '' },
+  vendors: { type: [String], default: [] },
 });
 
 export const CompanyConfig = model<CompanyConfigDoc>('CompanyConfig', companyConfigSchema);

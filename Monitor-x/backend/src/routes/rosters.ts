@@ -69,6 +69,26 @@ rostersRouter.post(
   })
 );
 
+// DELETE /api/rosters?empId=&date=&tripType=pickup|drop|both — remove saved shifts
+// (drives the right-click "Remove Login / Logout / Both" menu in the Rostering grid)
+rostersRouter.delete(
+  '/',
+  asyncHandler(async (req, res) => {
+    const { empId, date, tripType } = req.query as Record<string, string | undefined>;
+    if (!empId || !date) throw new HttpError(400, 'empId and date are required');
+
+    const employee = await Employee.findOne({ empId });
+    if (!employee) throw new HttpError(404, `Employee ${empId} not found`);
+
+    const query: FilterQuery<RosterDoc> = { employeeId: employee._id, date };
+    if (tripType === 'pickup' || tripType === 'drop') query.tripType = tripType;
+    // tripType 'both' (or missing) deletes login + logout for that day
+
+    const result = await Roster.deleteMany(query);
+    res.json({ deleted: result.deletedCount ?? 0 });
+  })
+);
+
 rostersRouter.put(
   '/:id',
   asyncHandler(async (req, res) => {

@@ -102,17 +102,12 @@ driverTripsRouter.post(
   })
 );
 
-// PUT /api/driver/trips/:tripId/start  (?force=true to bypass the all-verified guard)
+// PUT /api/driver/trips/:tripId/start — driver starts first, then picks up
+// employees one by one (OTP verification happens at each pickup point).
 driverTripsRouter.put(
   '/:tripId/start',
   asyncHandler(async (req, res) => {
     const trip = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
-    const force = req.query.force === 'true';
-    const allVerified = trip.verifiedEmployees.length >= trip.employeeIds.length;
-    if (!allVerified && !force) {
-      throw new HttpError(409, 'All employees must be verified before starting the trip');
-    }
-
     await Trip.updateOne(
       { _id: trip._id },
       { status: 'Trip Started', startedAt: new Date() }

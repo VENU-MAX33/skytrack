@@ -18,12 +18,23 @@ async function fromDTO(body: Partial<VehicleDTO>): Promise<Record<string, unknow
   return out;
 }
 
+const STALE_MS = 30 * 60_000; // legend: "No data from past 30 min" → no-gps
+
 // Must be declared before '/:rtoNo'
 vehiclesRouter.get(
   '/positions',
   asyncHandler(async (_req, res) => {
     const docs = await Vehicle.find({ active: 'Yes' });
-    res.json(docs.map(toVehiclePositionDTO));
+    const now = Date.now();
+    res.json(
+      docs.map((d) => {
+        const dto = toVehiclePositionDTO(d);
+        if (d.lastPingAt && now - d.lastPingAt.getTime() > STALE_MS) {
+          dto.status = 'no-gps';
+        }
+        return dto;
+      })
+    );
   })
 );
 

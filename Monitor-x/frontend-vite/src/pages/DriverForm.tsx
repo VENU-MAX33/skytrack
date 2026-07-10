@@ -5,6 +5,7 @@ import FormField from "../components/FormField";
 import { getDriver, createDriver, updateDriver } from "../api";
 import type { Driver } from "../api";
 import { useToast } from "../context/ToastContext";
+import { useVendors } from "../hooks/useVendors";
 
 const EMPTY: Driver = {
   name: "", gender: "Male", dlNumber: "", badgeNumber: "",
@@ -24,6 +25,7 @@ export default function DriverForm() {
   const toast = useToast();
   const isEdit = Boolean(id);
 
+  const vendors = useVendors();
   const [form, setForm] = useState<Driver>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof Driver, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -107,7 +109,9 @@ export default function DriverForm() {
             </FormField>
             <FormField label="Vendor">
               <select className={SELECT} value={form.vendor} onChange={(e) => set("vendor", e.target.value)}>
-                <option>RGL</option>
+                {[...new Set([form.vendor, ...vendors])].filter(Boolean).map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </FormField>
 

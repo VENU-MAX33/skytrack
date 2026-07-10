@@ -7,3 +7,5 @@ build/
 .claude/
 skills-lock.json
 *.local
+.vscode/
+senior-prompt-engineer/

@@ -1,5 +1,5 @@
-import { apiPost } from './client';
-import type { DriverUser } from './types';
+import { apiGet, apiPost } from './client';
+import type { DriverUser, DriverProfile } from './types';
 
 interface OtpResponse {
   sent: boolean;
@@ -17,4 +17,8 @@ export function requestOtp(phone: string): Promise<OtpResponse> {
 
 export function verifyOtp(phone: string, code: string): Promise<LoginResponse> {
   return apiPost<LoginResponse>('/api/driver/verify-otp', { phone, code });
+}
+
+export function getDriverProfile(): Promise<DriverProfile> {
+  return apiGet<DriverProfile>('/api/driver/me');
 }

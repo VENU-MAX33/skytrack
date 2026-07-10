@@ -7,4 +7,5 @@ export * from './trips';
 export * from './dashboard';
 export * from './rosters';
 export * from './auth';
+export * from './staff';
 export { ApiError } from './client';

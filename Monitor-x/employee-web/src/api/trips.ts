@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from './client';
-import type { EmployeeTrip } from './types';
+import type { EmployeeTrip, CompanyConfig } from './types';
 
 export function getEmployeeTrips(): Promise<EmployeeTrip[]> {
   return apiGet<EmployeeTrip[]>('/api/employee/trips');
@@ -28,4 +28,9 @@ export function submitLocationRequest(data: {
   note?: string;
 }): Promise<unknown> {
   return apiPost('/api/employee/location-request', data);
+}
+
+// Company info for the About Us page — accessible to any authenticated role.
+export function getCompanyConfig(): Promise<CompanyConfig> {
+  return apiGet<CompanyConfig>('/api/company-config');
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Users, Calendar, Search, Download, Upload, X, Check, MoreVertical } from "lucide-react";
-import { getEmployees, getRosters, saveRosters } from "../api";
+import { getEmployees, getRosters, saveRosters, deleteRosters } from "../api";
 import type { Employee, RosterEntry } from "../api";
 import { useToast } from "../context/ToastContext";
 import { localToday } from "../lib/tripStatus";
@@ -110,12 +110,8 @@ export default function Rostering() {
     savedRosters.forEach((r) => {
       if (!map.has(r.empId)) map.set(r.empId, new Map());
       const dateMap = map.get(r.empId)!;
-      // Note: RosterEntry from backend should have date, but type might not reflect it?
-      // Wait, RosterEntry currently lacks `date` in frontend type? Let's check api/types.ts
-      // Assuming r has a `date` property (from the API it should).
-      const rDate = (r as any).date; 
-      if (!dateMap.has(rDate)) dateMap.set(rDate, []);
-      dateMap.get(rDate)!.push(r);
+      if (!dateMap.has(r.date)) dateMap.set(r.date, []);
+      dateMap.get(r.date)!.push(r);
     });
     return map;
   }, [savedRosters]);
@@ -195,15 +191,38 @@ export default function Rostering() {
     setTimingModal(null);
   }
 
-  function removeRoster(empId: string, date: string, type: "login" | "logout" | "both") {
-    // In a real app we'd call an API to delete the roster.
-    // For now we'll just clear the local config if it's unsaved.
+  async function removeRoster(empId: string, date: string, type: "login" | "logout" | "both") {
+    // Prune the local (unsaved) config first: partial removal keeps the other leg.
     setRosterConfigs((prev) => {
       const empConfigs = { ...prev[empId] };
-      delete empConfigs[date];
+      const cfg = empConfigs[date];
+      if (cfg) {
+        if (type === "both" || cfg.tripType === (type === "login" ? "pickup" : "drop")) {
+          delete empConfigs[date];
+        } else if (cfg.tripType === "both") {
+          empConfigs[date] = {
+            ...cfg,
+            tripType: type === "login" ? "drop" : "pickup",
+            timing: type === "login" ? (cfg.dropTiming ?? cfg.timing) : cfg.timing,
+          };
+        }
+      }
       return { ...prev, [empId]: empConfigs };
     });
-    toast.success(`Removed ${type} for ${date}`);
+
+    // Then delete the SAVED shifts on the server (login→pickup, logout→drop).
+    const tripType = type === "login" ? "pickup" : type === "logout" ? "drop" : "both";
+    try {
+      const { deleted } = await deleteRosters(empId, date, tripType);
+      if (deleted > 0) {
+        setSavedRosters(await getRosters({ fromDate, toDate }));
+        toast.success(`Removed ${type} shift for ${formatDateDisplay(date)} (${deleted} deleted)`);
+      } else {
+        toast.success(`Removed ${type} for ${formatDateDisplay(date)}`);
+      }
+    } catch (err) {
+      toast.error(`Could not remove shift: ${(err as Error).message}`);
+    }
   }
 
   async function handleSaveAll() {
@@ -329,14 +348,14 @@ export default function Rostering() {
                     else display = cfg.timing;
                     bgColor = "#E8F4FD"; // Unsaved config
                   } else if (saved && saved.length > 0) {
-                    const pickups = saved.filter((s: any) => s.tripType === 'pickup');
-                    const drops = saved.filter((s: any) => s.tripType === 'drop');
+                    const pickups = saved.filter((s) => s.tripType === 'pickup');
+                    const drops = saved.filter((s) => s.tripType === 'drop');
                     if (pickups.length && drops.length) {
-                      display = `${(pickups[0] as any).shiftTime || (pickups[0] as any).timing || 'Login'} | ${(drops[0] as any).shiftTime || (drops[0] as any).timing || 'Logout'}`;
+                      display = `${pickups[0].shiftTime || 'Login'} | ${drops[0].shiftTime || 'Logout'}`;
                     } else if (pickups.length) {
-                      display = `${(pickups[0] as any).shiftTime || (pickups[0] as any).timing || 'Login'}`;
+                      display = pickups[0].shiftTime || 'Login';
                     } else if (drops.length) {
-                      display = `${(drops[0] as any).shiftTime || (drops[0] as any).timing || 'Logout'}`;
+                      display = drops[0].shiftTime || 'Logout';
                     }
                     bgColor = "#F4F0FF"; // Saved
                   }

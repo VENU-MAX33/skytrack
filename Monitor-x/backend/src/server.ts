@@ -16,6 +16,7 @@ import { rostersRouter } from './routes/rosters.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { driverAuthRouter } from './routes/driver-auth.js';
 import { driverTripsRouter } from './routes/driver-trips.js';
+import { driverTrackingRouter } from './routes/driver-tracking.js';
 import { employeeAuthRouter } from './routes/employee-auth.js';
 import { employeeTripsRouter } from './routes/employee-trips.js';
 import { sosRouter } from './routes/sos.js';
@@ -25,11 +26,16 @@ import { employeeLocationRequestRouter } from './routes/employee-location-reques
 import { locationRequestsRouter } from './routes/location-requests.js';
 import { employeeDocumentsRouter } from './routes/employee-documents.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { reportsRouter } from './routes/reports.js';
+import { staffRouter } from './routes/staff.js';
+import { employeeFeedbackRouter } from './routes/employee-feedback.js';
+import { feedbackRouter } from './routes/feedback.js';
 
 const app = express();
 
 app.use(cors({ origin: env.corsOrigins }));
-app.use(express.json());
+// 5 MB: company logo + employee document uploads travel as base64 JSON.
+app.use(express.json({ limit: '5mb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
@@ -47,12 +53,17 @@ app.use('/api/company-config', requireAuth, companyConfigRouter);
 app.use('/api/trips', requireAuth, tripsRouter);
 app.use('/api/rosters', requireAuth, rostersRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
+app.use('/api/reports', requireRole('admin'), reportsRouter);
+app.use('/api/auth/staff', requireRole('admin'), staffRouter);
+app.use('/api/feedback', feedbackRouter); // admin-only role check happens per-route inside
 
 // --- Role-scoped app endpoints ---
 app.use('/api/driver/trips', requireRole('driver'), driverTripsRouter);
+app.use('/api/driver/tracking', requireRole('driver'), driverTrackingRouter);
 app.use('/api/employee/trips', requireRole('employee'), employeeTripsRouter);
 app.use('/api/employee/location', requireRole('employee'), employeeLocationRouter);
 app.use('/api/employee/location-request', requireRole('employee'), employeeLocationRequestRouter);
+app.use('/api/employee/feedback', requireRole('employee'), employeeFeedbackRouter);
 // SOS: employees raise alerts; admins acknowledge (router enforces per-route roles)
 app.use('/api/sos', sosRouter);
 

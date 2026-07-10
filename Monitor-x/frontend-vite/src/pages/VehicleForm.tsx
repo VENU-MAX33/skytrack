@@ -5,6 +5,7 @@ import FormField from "../components/FormField";
 import { getVehicle, createVehicle, updateVehicle, getDrivers } from "../api";
 import type { Vehicle, Driver } from "../api";
 import { useToast } from "../context/ToastContext";
+import { useVendors } from "../hooks/useVendors";
 
 const EMPTY: Vehicle = {
   rtoNo: "", seatCount: "4", model: "SEDAN",
@@ -25,6 +26,7 @@ export default function VehicleForm() {
   const toast = useToast();
   const isEdit = Boolean(id);
 
+  const vendors = useVendors();
   const [form, setForm] = useState<Vehicle>(EMPTY);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof Vehicle, string>>>({});
@@ -118,7 +120,9 @@ export default function VehicleForm() {
 
             <FormField label="Vendor">
               <select className={SELECT} value={form.vendor} onChange={(e) => set("vendor", e.target.value)}>
-                <option>RGL</option>
+                {[...new Set([form.vendor, ...vendors])].filter(Boolean).map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </FormField>
             <FormField label="Fuel Type">

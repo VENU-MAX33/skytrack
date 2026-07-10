@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bus, Users, ChevronRight, LogOut } from 'lucide-react';
+import { Bus, Users, ChevronRight, Menu } from 'lucide-react';
 import { getDriverTrips } from '../api/trips';
 import type { DriverTrip } from '../api/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
+import { useSettingsSheet } from '../context/SettingsSheetContext';
 
 type Tab = 'trips' | 'ongoing' | 'sheet';
 
@@ -19,10 +20,11 @@ const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
 const DONE = ['Completed', 'Completed Late', 'No Show Completed'];
 
 export default function TripList() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const { on } = useRealtime();
+  const { openSheet } = useSettingsSheet();
   const [tab, setTab] = useState<Tab>('trips');
   const [trips, setTrips] = useState<DriverTrip[]>([]);
 
@@ -52,14 +54,14 @@ export default function TripList() {
 
   return (
     <div className="app-shell pb-6">
-      <header className="bg-[#6a5ca1] text-white px-4 py-4 flex items-center justify-between">
+      <header className="bg-[#6a5ca1] text-white px-4 py-4 flex items-center gap-3">
+        <button onClick={openSheet} aria-label="Menu" className="p-2 -ml-2">
+          <Menu size={22} />
+        </button>
         <div>
           <div className="font-bold">{user?.name}</div>
           <div className="text-[12px] opacity-90">{user?.vendor || 'driver'}</div>
         </div>
-        <button onClick={logout} aria-label="Logout" className="p-2">
-          <LogOut size={20} />
-        </button>
       </header>
 
       <div className="flex gap-1 m-3 p-1 bg-[#e9e9ef] rounded-xl">

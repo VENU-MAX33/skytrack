@@ -25,6 +25,32 @@ export interface EmployeeUser {
   role: 'employee';
 }
 
+export interface EmployeeProfile {
+  id: string;
+  name: string;
+  gender: string;
+  contact: string;
+  email: string;
+  transportType: string;
+  transportMode: string;
+  address: string;
+  location: string;
+  nodalPoint: string;
+  manager: string;
+  shiftLogin: string;
+  shiftLogout: string;
+  team: string;
+  route: string;
+  active: string;
+}
+
+export interface CompanyConfig {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 export interface OtpNotification {
   tripId: string;
   code: string | null;

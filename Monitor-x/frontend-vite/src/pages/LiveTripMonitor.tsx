@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { MapPin, Search, Download, X, Navigation, RefreshCw, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { getLiveTripMonitorData } from "../api";
-import type { Trip } from "../api";
+import { MapPin, Search, Download, X, Navigation, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Pencil } from "lucide-react";
+import { getLiveTripMonitorData, getVehicles, changeTripVehicle } from "../api";
+import type { Trip, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
 import { exportToCsv } from "../lib/exportCsv";
 import { useToast } from "../context/ToastContext";
@@ -49,6 +49,11 @@ export default function LiveTripMonitor() {
   const { empLocations } = useRealtime();
   const [showEmpLoc, setShowEmpLoc] = useState(true);
 
+  // Vehicle change: allowed at ANY trip status (admin + staff); persists to reports.
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [editingVehicle, setEditingVehicle] = useState<string | null>(null); // trip id being edited
+  const [changingVehicle, setChangingVehicle] = useState<string | null>(null);
+
   const load = useCallback(() => {
     getLiveTripMonitorData({ fromDate, toDate })
       .then((data) => {
@@ -59,6 +64,34 @@ export default function LiveTripMonitor() {
   }, [fromDate, toDate, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getVehicles().then(setVehicles).catch(() => { /* select simply stays empty */ });
+  }, []);
+
+  const activeVehicles = useMemo(() => vehicles.filter((v) => v.active === "Yes"), [vehicles]);
+
+  // Shift-time options reflect the times actually present in the loaded trips.
+  const shiftOptions = useMemo(() => {
+    const times = new Set<string>();
+    trips.forEach((t) => { if (t.shiftTime) times.add(t.shiftTime); });
+    return ["All", ...Array.from(times).sort()];
+  }, [trips]);
+
+  async function handleChangeVehicle(tripId: string, vehicleNo: string) {
+    if (!vehicleNo) { setEditingVehicle(null); return; }
+    setChangingVehicle(tripId);
+    try {
+      await changeTripVehicle(tripId, vehicleNo);
+      toast.success(`Trip ${tripId} moved to vehicle ${vehicleNo} — reports will show the new number`);
+      load();
+    } catch (err) {
+      toast.error(`Could not change vehicle: ${(err as Error).message}`);
+    } finally {
+      setChangingVehicle(null);
+      setEditingVehicle(null);
+    }
+  }
 
   // keep URL shareable: write current filters back as query params
   useEffect(() => {
@@ -244,12 +277,7 @@ export default function LiveTripMonitor() {
               onChange={(e) => { setShiftTime(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
             >
-              <option>All</option>
-              <option>02:30</option>
-              <option>05:00</option>
-              <option>09:00</option>
-              <option>14:30</option>
-              <option>17:30</option>
+              {shiftOptions.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -374,7 +402,38 @@ export default function LiveTripMonitor() {
                   <td>{trip.empCount}</td>
                   <td>{trip.location}</td>
                   <td>{trip.vendor}</td>
-                  <td>{trip.vehicleNo}</td>
+                  <td>
+                    {editingVehicle === trip.id ? (
+                      <select
+                        autoFocus
+                        value={trip.vehicleNo}
+                        disabled={changingVehicle === trip.id}
+                        onChange={(e) => handleChangeVehicle(trip.id, e.target.value)}
+                        onBlur={() => setEditingVehicle(null)}
+                        className="border border-[#E0E4E9] bg-white rounded px-2 py-1 text-[12px] min-w-[150px]"
+                      >
+                        {!activeVehicles.some((v) => v.rtoNo === trip.vehicleNo) && (
+                          <option value={trip.vehicleNo}>{trip.vehicleNo}</option>
+                        )}
+                        {activeVehicles.map((v) => (
+                          <option key={v.rtoNo} value={v.rtoNo}>
+                            {v.rtoNo} · {v.driver || "no driver"}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        {trip.vehicleNo}
+                        <button
+                          onClick={() => setEditingVehicle(trip.id)}
+                          className="p-1 rounded text-[#0047B2] hover:bg-[#E8F4FD]"
+                          title="Change vehicle (any trip status — reports will use the new number)"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <button
                       onClick={() => navigate(`/vehicle-tracking?vehicle=${encodeURIComponent(trip.vehicleNo)}`)}

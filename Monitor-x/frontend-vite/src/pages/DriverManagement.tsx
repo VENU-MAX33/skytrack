@@ -7,6 +7,7 @@ import Pagination from "../components/Pagination";
 import { exportToCsv } from "../lib/exportCsv";
 import { parseExcel, downloadTemplate } from "../lib/excel";
 import { useToast } from "../context/ToastContext";
+import { useVendors } from "../hooks/useVendors";
 
 const PAGE_SIZE = 20;
 
@@ -18,6 +19,7 @@ const TEMPLATE_HEADERS = [
 export default function DriverManagement() {
   const toast = useToast();
   const [searchParams] = useSearchParams();
+  const vendors = useVendors();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [vendorFilter, setVendorFilter] = useState(() => searchParams.get("vendor") ?? "All");
@@ -98,7 +100,7 @@ export default function DriverManagement() {
         contact: val(r, "Contact"),
         aadhaar: val(r, "Aadhaar"),
         pan: val(r, "PAN"),
-        vendor: val(r, "Vendor") || "RGL",
+        vendor: val(r, "Vendor") || vendors[0] || "RGL",
         dlEffectiveFrom: val(r, "DL Effective From"),
         dlExpiry: val(r, "DL Expiry"),
         address: val(r, "Address"),
@@ -200,8 +202,7 @@ export default function DriverManagement() {
               onChange={(e) => { setVendorFilter(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
             >
-              <option>All</option>
-              <option>RGL</option>
+              {["All", ...vendors].map((v) => <option key={v}>{v}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2 flex-1 ml-4">

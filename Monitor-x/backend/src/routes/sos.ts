@@ -95,6 +95,17 @@ sosRouter.put(
   })
 );
 
+// DELETE /api/sos/:id — MAIN admin only (staff cannot delete alert history)
+sosRouter.delete(
+  '/:id',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const doc = await SOSAlert.findByIdAndDelete(req.params.id);
+    if (!doc) throw new HttpError(404, 'SOS alert not found');
+    res.status(204).end();
+  })
+);
+
 // GET /api/sos/config — admin gets alert phone config
 sosRouter.get(
   '/config',

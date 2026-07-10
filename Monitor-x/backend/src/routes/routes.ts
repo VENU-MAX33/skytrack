@@ -3,9 +3,14 @@ import { Route } from '../models/Route.js';
 import { Employee } from '../models/Employee.js';
 import { toRouteDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
+import { requirePermission } from '../middleware/auth.js';
 import type { Route as RouteDTO } from '../types/dto.js';
 
 export const routesRouter = Router();
+
+// Reads (route list/detail) stay open to staff — Master Routing's map needs them.
+// Only creating/editing/deleting routes is admin-only.
+const adminOnly = requirePermission((role) => role === 'admin');
 
 const MAX_ROUTES = 7;
 
@@ -33,6 +38,7 @@ routesRouter.get(
 
 routesRouter.post(
   '/',
+  adminOnly,
   asyncHandler(async (req, res) => {
     const body = req.body as Partial<RouteDTO> & { destLat?: number; destLng?: number };
     if (!body.name) throw new HttpError(400, 'name is required');
@@ -55,6 +61,7 @@ routesRouter.post(
 
 routesRouter.put(
   '/:id',
+  adminOnly,
   asyncHandler(async (req, res) => {
     const body = req.body as Partial<RouteDTO> & { destLat?: number | null; destLng?: number | null };
     const update: Record<string, unknown> = {};
@@ -70,6 +77,7 @@ routesRouter.put(
 
 routesRouter.delete(
   '/:id',
+  adminOnly,
   asyncHandler(async (req, res) => {
     const doc = await Route.findOneAndDelete({ routeId: Number(req.params.id) });
     if (!doc) throw new HttpError(404, 'Route not found');

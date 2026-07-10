@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#004b87" />
     <title>MonitorX Employee</title>
+    <script>
+      // No-flash dark mode bootstrap: applied before the app mounts.
+      try {
+        if (localStorage.getItem('employee_theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

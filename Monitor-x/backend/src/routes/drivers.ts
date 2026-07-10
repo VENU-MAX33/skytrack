@@ -6,6 +6,18 @@ import type { Driver as DriverDTO } from '../types/dto.js';
 
 export const driversRouter = Router();
 
+// A mobile number can belong to only one driver (excludeName skips the record being edited).
+async function assertContactUnique(contact: string | undefined, excludeName?: string): Promise<void> {
+  const c = contact?.trim();
+  if (!c) return;
+  const query: Record<string, unknown> = { contact: c };
+  if (excludeName) query.name = { $ne: excludeName };
+  const existing = await Driver.findOne(query);
+  if (existing) {
+    throw new HttpError(409, `This mobile number is already registered to driver ${existing.name}`);
+  }
+}
+
 driversRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -31,6 +43,7 @@ driversRouter.post(
     if (!body.name || !body.dlNumber) throw new HttpError(400, 'name and dlNumber are required');
     const exists = await Driver.findOne({ dlNumber: body.dlNumber });
     if (exists) throw new HttpError(409, `Driver with DL ${body.dlNumber} already exists`);
+    await assertContactUnique(body.contact);
     const doc = await Driver.create(body);
     res.status(201).json(toDriverDTO(doc));
   })
@@ -56,6 +69,13 @@ driversRouter.post(
       }
       const exists = await Driver.findOne({ dlNumber: d.dlNumber });
       if (exists) { skipped++; continue; }
+      if (d.contact?.trim()) {
+        const dupContact = await Driver.findOne({ contact: d.contact.trim() });
+        if (dupContact) {
+          errors.push({ row: i + 1, reason: `mobile number already registered to driver ${dupContact.name}` });
+          continue;
+        }
+      }
       try {
         await Driver.create(d);
         created++;
@@ -84,7 +104,9 @@ driversRouter.put(
 driversRouter.put(
   '/:name',
   asyncHandler(async (req, res) => {
-    const doc = await Driver.findOneAndUpdate({ name: req.params.name }, req.body as Partial<DriverDTO>, {
+    const body = req.body as Partial<DriverDTO>;
+    await assertContactUnique(body.contact, req.params.name);
+    const doc = await Driver.findOneAndUpdate({ name: req.params.name }, body, {
       new: true,
     });
     if (!doc) throw new HttpError(404, 'Driver not found');

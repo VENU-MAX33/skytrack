@@ -24,6 +24,10 @@ interface RealtimeContextValue {
   dismissSos: (id: string) => void;
   /** Latest live location per employee (keyed by empId). */
   empLocations: EmployeeLocationUpdate[];
+  /** Remove one employee's live-location entry (admin dashboard delete). */
+  removeEmpLocation: (empId: string) => void;
+  /** Clear the whole live-location list. */
+  clearEmpLocations: () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -71,8 +75,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const removeEmpLocation = useCallback(
+    (empId: string) => setEmpLocations((prev) => prev.filter((e) => e.empId !== empId)),
+    []
+  );
+  const clearEmpLocations = useCallback(() => setEmpLocations([]), []);
+
   return (
-    <RealtimeContext.Provider value={{ on, sosAlerts, dismissSos, empLocations }}>
+    <RealtimeContext.Provider
+      value={{ on, sosAlerts, dismissSos, empLocations, removeEmpLocation, clearEmpLocations }}
+    >
       {children}
     </RealtimeContext.Provider>
   );

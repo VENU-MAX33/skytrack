@@ -35,7 +35,25 @@ export interface DriverUser {
   contact: string;
   vendor: string;
   email: string;
+  badgeNumber?: string;
+  dlNumber?: string;
   role: 'driver';
+}
+
+export interface DriverVehicle {
+  rtoNo: string;
+  model: string;
+  vehicleType: string;
+}
+
+export interface DriverProfile {
+  name: string;
+  contact: string;
+  vendor: string;
+  email: string;
+  badgeNumber: string;
+  dlNumber: string;
+  vehicle: DriverVehicle | null;
 }
 
 export interface SosAlert {
@@ -48,6 +66,13 @@ export interface SosAlert {
   tripId: string | null;
   employee: { id: string; name: string; contact: string };
   driver: { name: string; contact: string } | null;
+}
+
+export interface CompanyConfig {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
 }
 
 export interface EmpLocationUpdate {

@@ -44,15 +44,22 @@ function parseLatLng(raw: string): [number, number] | null {
   return null;
 }
 
-function FlyTo({ coords }: { coords: [number, number] | null }) {
+// Zooms to the selected employee; when their route destination is also known,
+// fits both ends so the employee → route connection is fully visible.
+function FlyTo({ coords, pairWith }: { coords: [number, number] | null; pairWith?: [number, number] | null }) {
   const map = useMap();
-  const prev = useRef<[number, number] | null>(null);
+  const prev = useRef<string>("");
   useEffect(() => {
     if (!coords) return;
-    if (prev.current && prev.current[0] === coords[0] && prev.current[1] === coords[1]) return;
-    prev.current = coords;
-    map.flyTo(coords, 15, { duration: 1 });
-  }, [coords, map]);
+    const key = `${coords[0]},${coords[1]}|${pairWith ? `${pairWith[0]},${pairWith[1]}` : ""}`;
+    if (key === prev.current) return;
+    prev.current = key;
+    if (pairWith) {
+      map.flyToBounds(L.latLngBounds([coords, pairWith]), { padding: [60, 60], duration: 1 });
+    } else {
+      map.flyTo(coords, 15, { duration: 1 });
+    }
+  }, [coords, pairWith, map]);
   return null;
 }
 
@@ -116,6 +123,26 @@ export default function MasterRouting() {
   const flyCoords: [number, number] | null = selectedEmp
     ? (parseLatLng(selectedEmp.latLong) ?? null)
     : null;
+
+  // Road paths connecting each CHECKBOX-SELECTED employee's location to their
+  // assigned route's destination (fetchRoadPath caches, so re-runs are cheap).
+  const [empPaths, setEmpPaths] = useState<Record<string, LatLng[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      for (const empId of selectedEmployees) {
+        const emp = employees.find((e) => e.id === empId);
+        if (!emp) continue;
+        const coords = parseLatLng(emp.latLong);
+        const route = routes.find((r) => r.name === emp.route);
+        if (!coords || !route?.destLat || !route?.destLng) continue;
+        const path = await fetchRoadPath(coords, [route.destLat, route.destLng]);
+        if (cancelled) return;
+        setEmpPaths((prev) => ({ ...prev, [empId]: path }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedEmployees, employees, routes]);
 
   // All visible employee points (either selected route or all routes with coords)
   const visibleEmpPoints: [number, number][] = (selectedRoute ? routeEmployees : employees)
@@ -413,8 +440,33 @@ export default function MasterRouting() {
             {/* Fit all points on initial load */}
             {fitPoints.length > 0 && <FitAll points={fitPoints} />}
 
-            {/* Fly to selected employee */}
+            {/* Fly to clicked employee */}
             <FlyTo coords={flyCoords} />
+
+            {/* Connections: each checkbox-selected employee → their assigned route's destination */}
+            {Array.from(selectedEmployees).map((empId) => {
+              const emp = employees.find((e) => e.id === empId);
+              if (!emp) return null;
+              const coords = parseLatLng(emp.latLong);
+              const route = routes.find((r) => r.name === emp.route);
+              if (!coords || !route?.destLat || !route?.destLng) return null;
+              return (
+                <Polyline
+                  key={`emp-conn-${empId}`}
+                  positions={empPaths[empId] ?? [coords, [route.destLat, route.destLng]]}
+                  pathOptions={{
+                    color: routeColor(route.id),
+                    weight: 5,
+                    opacity: 0.95,
+                    dashArray: "8 8",
+                  }}
+                >
+                  <Tooltip sticky>
+                    {emp.name} → Route: {route.name}
+                  </Tooltip>
+                </Polyline>
+              );
+            })}
 
             {/* Company marker */}
             {companyPt && (

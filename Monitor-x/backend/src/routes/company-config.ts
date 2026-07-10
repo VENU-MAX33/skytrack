@@ -1,35 +1,46 @@
 import { Router } from 'express';
-import { CompanyConfig } from '../models/CompanyConfig.js';
+import { CompanyConfig, type CompanyConfigDoc } from '../models/CompanyConfig.js';
 import { asyncHandler } from '../middleware/errors.js';
+import { requirePermission } from '../middleware/auth.js';
 
 export const companyConfigRouter = Router();
+
+function toDTO(doc: Partial<CompanyConfigDoc> | null) {
+  return {
+    name: doc?.name ?? '',
+    address: doc?.address ?? '',
+    lat: doc?.lat ?? 0,
+    lng: doc?.lng ?? 0,
+    logoBase64: doc?.logoBase64 ?? '',
+    vendors: doc?.vendors ?? [],
+  };
+}
 
 companyConfigRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
     const doc = await CompanyConfig.findOne();
-    if (!doc) {
-      res.json({ name: '', address: '', lat: 0, lng: 0 });
-      return;
-    }
-    res.json({ name: doc.name, address: doc.address, lat: doc.lat, lng: doc.lng });
+    res.json(toDTO(doc));
   })
 );
 
 companyConfigRouter.put(
   '/',
+  requirePermission((role) => role === 'admin'),
   asyncHandler(async (req, res) => {
-    const { name, address, lat, lng } = req.body as {
-      name?: string;
-      address?: string;
-      lat?: number;
-      lng?: number;
-    };
-    const doc = await CompanyConfig.findOneAndUpdate(
-      {},
-      { name: name ?? '', address: address ?? '', lat: lat ?? 0, lng: lng ?? 0 },
-      { new: true, upsert: true }
-    );
-    res.json({ name: doc.name, address: doc.address, lat: doc.lat, lng: doc.lng });
+    const { name, address, lat, lng, logoBase64, vendors } = req.body as Partial<CompanyConfigDoc>;
+    // Only overwrite fields the caller actually sent, so a save from one screen
+    // (e.g. RouteForm's location card) never wipes the logo or vendor list.
+    const update: Partial<CompanyConfigDoc> = {};
+    if (name !== undefined) update.name = name;
+    if (address !== undefined) update.address = address;
+    if (lat !== undefined) update.lat = lat;
+    if (lng !== undefined) update.lng = lng;
+    if (logoBase64 !== undefined) update.logoBase64 = logoBase64;
+    if (vendors !== undefined) {
+      update.vendors = [...new Set(vendors.map((v) => String(v).trim()).filter(Boolean))];
+    }
+    const doc = await CompanyConfig.findOneAndUpdate({}, update, { new: true, upsert: true });
+    res.json(toDTO(doc));
   })
 );

@@ -1,4 +1,4 @@
-import { apiGet, apiPut } from './client';
+import { apiGet, apiPut, apiDelete } from './client';
 
 export interface SosAlert {
   id: string;
@@ -28,4 +28,8 @@ export function getSosConfig(): Promise<{ alertPhone: string }> {
 
 export function updateSosConfig(alertPhone: string): Promise<{ alertPhone: string }> {
   return apiPut<{ alertPhone: string }>('/api/sos/config', { alertPhone });
+}
+
+export async function deleteSos(id: string): Promise<void> {
+  await apiDelete(`/api/sos/${id}`);
 }

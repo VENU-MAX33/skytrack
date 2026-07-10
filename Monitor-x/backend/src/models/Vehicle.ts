@@ -24,6 +24,9 @@ export interface VehicleDoc {
   lng: number;
   trackStatus: string;
   speed: number;
+  // phone-as-GPS: key the driver's phone must present with every position ping
+  trackingKey: string;
+  lastPingAt: Date | null;
 }
 
 const vehicleSchema = new Schema<VehicleDoc>({
@@ -49,6 +52,8 @@ const vehicleSchema = new Schema<VehicleDoc>({
   lng: { type: Number, default: 0 },
   trackStatus: { type: String, default: 'no-gps' },
   speed: { type: Number, default: 0 },
+  trackingKey: { type: String, default: '' },
+  lastPingAt: { type: Date, default: null },
 });
 
 export const Vehicle = model<VehicleDoc>('Vehicle', vehicleSchema);

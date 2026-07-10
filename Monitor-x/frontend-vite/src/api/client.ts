@@ -64,10 +64,10 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return handle<T>(res, 'PUT', path);
 }
 
-export async function apiDelete(path: string): Promise<void> {
+export async function apiDelete<T = void>(path: string): Promise<T> {
   if (!BASE_URL) {
     throw new Error(`No BASE_URL configured for DELETE ${path}`);
   }
   const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE', headers: authHeaders() });
-  await handle<void>(res, 'DELETE', path);
+  return handle<T>(res, 'DELETE', path);
 }

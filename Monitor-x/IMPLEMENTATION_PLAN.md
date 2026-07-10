@@ -303,3 +303,104 @@ Acceptance criteria:
 - Raising an SOS or submitting a location change increments the bell badge live and adds
   a dropdown entry linking to the dashboard or the location-requests page.
 ```
+
+---
+
+# Round 3 — Roster delete, trip vehicle change, shift-time filtering
+
+> Implemented, typechecked (backend + frontend `tsc --noEmit` pass) and API-verified live.
+> Master prompt below validated through `senior-prompt-engineer/scripts/prompt_optimizer.py`:
+> tokens 1087, clarity 73, 4 remaining issues (all legitimately repeated technical terms).
+
+## What was built
+
+- **Roster shift deletion.** New `DELETE /api/rosters?empId&date&tripType(pickup|drop|both)`
+  in `backend/src/routes/rosters.ts` (→ `{deleted: n}`); `deleteRosters()` in
+  `frontend-vite/src/api/rosters.ts` (via a now-generic `apiDelete<T>`); Rostering's
+  right-click "Remove Login / Logout / Both" now prunes local config AND deletes saved
+  shifts server-side, then refetches the grid. Verified: partial delete keeps the other
+  leg; "both" empties the day.
+- **Trip vehicle change.** New `PUT /api/trips/:id/vehicle` (`requireAuth` → admin +
+  staff) sets `vehicleId` + `vendor`, and moves `driverId` to the new vehicle's driver
+  only while the trip is not completed (history preserved); emits `trip:status`.
+  `changeTripVehicle()` added to `api/trips.ts`.
+  - *Trip Management*: unfrozen trips render VEHICLE NO as a select of active vehicles
+    (list + grid views); frozen trips stay read-only there.
+  - *Live Trip Monitor*: pencil → inline select on EVERY trip regardless of status;
+    since all reports/exports read the trips collection, the changed number flows into
+    CSV/Excel/dashboard automatically. Verified live: staff token changed a completed
+    trip's vehicle (200), unknown vehicle → 422.
+- **Shift-time filtering.** Both pages now build shift-time options dynamically from the
+  loaded rosters/trips (any time entered in Rostering appears), and Trip Management's
+  `readyGroups` (rostered employees awaiting a vehicle) honours the selected time — a
+  specific date + time shows only the employees pushed for that shift.
+
+## Master prompt (validated)
+
+```
+You are a senior full-stack engineer in the MonitorX TMS monorepo (Monitor-x/): Express +
+MongoDB backend, React 18 + Vite + TypeScript admin panel (frontend-vite). Execute the
+tasks in order.
+
+Shared rules:
+- Every change applies equally to main-admin and staff logins: guard new endpoints with
+  the router-level requireAuth only, never requireRole('admin'), and add no role checks
+  in the UI.
+- After finishing, backend and frontend-vite must each pass `tsc --noEmit` cleanly.
+- Reuse the page's existing toast + load()/refetch patterns for feedback and refresh.
+
+TASK 1 — Make the Rostering right-click "Remove" actually delete saved shifts
+Root cause: removeRoster() in frontend-vite/src/pages/Rostering.tsx only clears local
+unsaved state, and backend/src/routes/rosters.ts has no delete endpoint. Add
+DELETE /api/rosters taking query params empId, date, tripType (pickup | drop | both):
+resolve the employee by empId (404 when unknown), build the filter on employeeId + date
+(+ tripType unless both), run Roster.deleteMany, respond { deleted: count }. Add
+deleteRosters(empId, date, tripType) to frontend-vite/src/api/rosters.ts (generic
+apiDelete<T> so the count comes back typed). Rework removeRoster() to prune the local
+config (removing one leg of a "both" config keeps the other) and then call the endpoint
+with login→pickup, logout→drop, both→both, refetch getRosters({fromDate, toDate}), and
+toast the deleted count.
+
+TASK 2 — Allow changing a trip's vehicle before it is locked (Trip Management)
+Add PUT /api/trips/:id/vehicle to backend/src/routes/trips.ts, body { vehicleNo }:
+look up Vehicle by rtoNo (422 when unknown), set trip.vehicleId and trip.vendor, and
+copy the vehicle's driverId onto the trip only while completedAt is null (a finished
+trip keeps its driver history). Populate, emit trip:status via emitTripStatus so the
+driver app learns about reassignment, return the trip DTO. Add
+changeTripVehicle(tripId, vehicleNo) to frontend-vite/src/api/trips.ts. In
+TripManagement.tsx render the VEHICLE NO cell of every UNFROZEN trip (list and grid
+views) as a select of activeVehicles preselected to trip.vehicleNo, with
+stopPropagation so the row toggle does not fire; onChange calls changeTripVehicle then
+load(). Frozen trips keep plain text on this page.
+
+TASK 3 — Shift-time filter must narrow the rostered ("pushed") employees
+In TripManagement.tsx the SHIFTS constant is a hardcoded list, so times entered in
+Rostering never appear, and the readyGroups memo ignores the filter. Replace SHIFTS
+with a memo built from the distinct shiftTime values of the loaded rosters and trips
+(prefixed by "All", sorted); inside readyGroups keep only roster entries whose
+shiftTime equals the selected value when it is not "All", and add shiftTime to the
+memo's dependency array. Result: choosing a specific date + time shows only the
+employees pushed for that exact shift.
+
+TASK 4 — Change vehicle at ANY trip status from Live Trip Monitor
+Reuse the TASK 2 endpoint. In frontend-vite/src/pages/LiveTripMonitor.tsx load
+getVehicles() once and derive activeVehicles; replace the static VEHICLE NO cell with
+an inline editor available for every status (not started, ongoing, completed): a
+pencil button swaps the text for an autoFocus select of activeVehicles, onChange calls
+changeTripVehicle then load(), onBlur cancels. Because reports and exports (CSV here,
+Excel in Trip Management, dashboard tables) all read the trips collection, the changed
+number automatically appears in every report. Also replace this page's hardcoded
+shift-time options with the same dynamic memo pattern from TASK 3, derived from the
+loaded trips.
+
+Acceptance criteria:
+- Right-click a saved roster cell → Remove Login leaves only the logout time after the
+  grid refreshes; Remove Both empties the cell; GET /api/rosters confirms deletion.
+- An unfrozen trip's vehicle can be switched from its row in Trip Management; the row
+  then shows the new vehicle and vendor; the select disappears once the trip is frozen.
+- Entering two rosters at 08:15 and 19:45 puts both times in the dropdown, and picking
+  one hides the other group's pending row.
+- In Live Trip Monitor the vehicle of a COMPLETED trip can be changed by a staff login;
+  the API returns 200, the row and CSV export show the new number, and an unknown
+  vehicle number is rejected with 422.
+```

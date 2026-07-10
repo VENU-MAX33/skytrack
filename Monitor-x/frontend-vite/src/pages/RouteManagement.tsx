@@ -44,7 +44,10 @@ export default function RouteManagement() {
   const [loading, setLoading] = useState(true);
 
   // Company location
-  const [company, setCompany] = useState<CompanyConfig>({ name: "", address: "", lat: 0, lng: 0 });
+  const [company, setCompany] = useState<CompanyConfig>({
+    name: "", address: "", lat: 0, lng: 0, logoBase64: "", vendors: [],
+  });
+  const [vendorInput, setVendorInput] = useState("");
   const [companyAddr, setCompanyAddr] = useState("");
   const [companyLatLng, setCompanyLatLng] = useState("");
   const [fetchingCompany, setFetchingCompany] = useState(false);
@@ -125,6 +128,8 @@ export default function RouteManagement() {
         address: companyAddr,
         lat: parts[0],
         lng: parts[1],
+        logoBase64: company.logoBase64,
+        vendors: company.vendors,
       });
       setCompany(updated);
       setCompanySet(true);
@@ -134,6 +139,39 @@ export default function RouteManagement() {
     } finally {
       setSavingCompany(false);
     }
+  }
+
+  // ── Logo + vendors ─────────────────────────────────────────────────────────
+  function handleLogoFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file (PNG/JPG)");
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error("Logo must be under 1 MB — use a smaller image");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCompany((c) => ({ ...c, logoBase64: ev.target?.result as string }));
+      toast.success("Logo ready — click Save Company to apply it");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function addVendor() {
+    const v = vendorInput.trim();
+    if (!v) return;
+    setCompany((c) =>
+      c.vendors.some((x) => x.toLowerCase() === v.toLowerCase())
+        ? c
+        : { ...c, vendors: [...c.vendors, v] }
+    );
+    setVendorInput("");
+  }
+
+  function removeVendor(v: string) {
+    setCompany((c) => ({ ...c, vendors: c.vendors.filter((x) => x !== v) }));
   }
 
   // ── Route form handlers ────────────────────────────────────────────────────
@@ -289,6 +327,87 @@ export default function RouteManagement() {
             />
           </FormField>
         </div>
+
+        {/* Company Logo — replaces the initials badge in the header */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <FormField label="Company Logo (shown in the header)">
+            <div className="flex items-center gap-3">
+              {company.logoBase64 ? (
+                <img
+                  src={company.logoBase64}
+                  alt="Company logo"
+                  className="w-12 h-12 rounded object-contain border border-[#E0E4E9] bg-white"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded bg-[#0047B2] flex items-center justify-center text-white text-[13px] font-bold">
+                  {(company.name || "MX").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
+                </div>
+              )}
+              <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[12px] hover:bg-[#E0E4E9] cursor-pointer">
+                Upload Logo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoFile(f); e.target.value = ""; }}
+                />
+              </label>
+              {company.logoBase64 && (
+                <button
+                  type="button"
+                  onClick={() => setCompany((c) => ({ ...c, logoBase64: "" }))}
+                  className="text-[12px] text-[#D22630] hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </FormField>
+
+          {/* Vendors — cab company names used across driver/vehicle forms */}
+          <FormField label="Vendors (cab companies)">
+            <div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {company.vendors.length === 0 && (
+                  <span className="text-[12px] text-[#999]">No vendors yet — add one below</span>
+                )}
+                {company.vendors.map((v) => (
+                  <span
+                    key={v}
+                    className="inline-flex items-center gap-1 bg-[#EEF4FF] text-[#0047B2] text-[12px] px-2 py-1 rounded-full"
+                  >
+                    {v}
+                    <button
+                      type="button"
+                      onClick={() => removeVendor(v)}
+                      className="hover:text-[#D22630]"
+                      title={`Remove ${v}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className={INPUT}
+                  value={vendorInput}
+                  onChange={(e) => setVendorInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVendor(); } }}
+                  placeholder="e.g. RGL, BlueCabs…"
+                />
+                <button
+                  type="button"
+                  onClick={addVendor}
+                  className="shrink-0 bg-[#0047B2] text-white px-3 py-2 rounded text-[12px] hover:bg-[#003a94]"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </FormField>
+        </div>
+
         <div className="mt-4">
           <button
             type="button"

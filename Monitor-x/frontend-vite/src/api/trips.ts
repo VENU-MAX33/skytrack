@@ -1,5 +1,5 @@
 import type { Trip, TripFilters } from './types';
-import { apiGet, apiPost, apiPut } from './client';
+import { apiGet, apiPost, apiPut, apiDelete } from './client';
 
 function buildQuery(filters?: TripFilters): string {
   if (!filters) return '';
@@ -23,10 +23,22 @@ export async function getLiveTripMonitorData(filters?: TripFilters): Promise<Tri
   return getTrips(filters);
 }
 
-export async function createTrip(data: Omit<Trip, 'id'> & { employeeIds?: string[] }): Promise<Trip> {
+export async function createTrip(
+  data: Partial<Omit<Trip, 'id'>> & { employeeIds?: string[]; routeName?: string }
+): Promise<Trip> {
   return apiPost<Trip>('/api/trips', data);
 }
 
 export async function freezeTrip(tripId: string): Promise<Trip> {
   return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/freeze`, {});
+}
+
+/** Change the trip's vehicle (any status; persists to reports). Admin + staff. */
+export async function changeTripVehicle(tripId: string, vehicleNo: string): Promise<Trip> {
+  return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/vehicle`, { vehicleNo });
+}
+
+// Only unlocked (not frozen) trips can be deleted; the backend enforces this too.
+export async function deleteTrip(tripId: string): Promise<void> {
+  return apiDelete(`/api/trips/${encodeURIComponent(tripId)}`);
 }

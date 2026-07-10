@@ -29,8 +29,9 @@ export const env = {
   corsOrigins,
   // Shared default password seeded for every employee; admin can reset later.
   defaultEmployeePassword: process.env.DEFAULT_EMPLOYEE_PASSWORD ?? 'monitorx@123',
-  // OTP / SMS delivery: 'dev' logs to console + emits over WebSocket; 'msg91' wires real SMS.
-  smsProvider: (process.env.SMS_PROVIDER ?? 'dev') as 'dev' | 'msg91',
+  // OTP / SMS delivery: 'dev' logs to console + emits over WebSocket; 'fast2sms'/'msg91' wire real SMS.
+  smsProvider: (process.env.SMS_PROVIDER ?? 'dev') as 'dev' | 'msg91' | 'fast2sms',
+  fast2smsApiKey: process.env.FAST2SMS_API_KEY ?? '',
   msg91: {
     authKey: process.env.MSG91_AUTH_KEY ?? '',
     senderId: process.env.MSG91_SENDER_ID ?? '',

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Pagination from "./Pagination";
+import { StatIcon } from "../lib/statIcons";
 
 interface Column {
   key: string;
@@ -38,12 +39,16 @@ export default function DataTable({
         {titleTo ? (
           <Link
             to={titleTo}
-            className="text-[14px] font-semibold text-[#222222] hover:text-[#0047B2] hover:underline"
+            className="text-[14px] font-semibold text-[#222222] hover:text-[#0047B2] hover:underline flex items-center gap-2"
           >
+            <StatIcon label={title} />
             {title}
           </Link>
         ) : (
-          <h3 className="text-[14px] font-semibold text-[#222222]">{title}</h3>
+          <h3 className="text-[14px] font-semibold text-[#222222] flex items-center gap-2">
+            <StatIcon label={title} />
+            {title}
+          </h3>
         )}
       </div>
       <div className="overflow-x-auto">

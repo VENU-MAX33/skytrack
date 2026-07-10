@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, Car, CarFront, Phone, Share2, KeyRound, LogOut, CheckCircle2, MapPin, Loader2, Navigation, X } from 'lucide-react';
+import { Menu, Car, CarFront, Phone, Share2, KeyRound, CheckCircle2, MapPin, Loader2, Navigation, X } from 'lucide-react';
 import { getEmployeeTrips, shareLocation, submitLocationRequest } from '../api/trips';
 import type { EmployeeTrip } from '../api/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
+import { useSettingsSheet } from '../context/SettingsSheetContext';
 import SosButton from '../components/SosButton';
 
 const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const { on, otp, clearOtp } = useRealtime();
+  const { openSheet } = useSettingsSheet();
   const [trips, setTrips] = useState<EmployeeTrip[]>([]);
   const [sharing, setSharing] = useState(false);
   const [showLocModal, setShowLocModal] = useState(false);
@@ -120,11 +122,11 @@ export default function Dashboard() {
   return (
     <div className="app-shell pb-28">
       <header className="bg-[#004b87] text-white px-4 py-4 flex items-center justify-between">
-        <Menu size={22} />
-        <div className="font-bold">Cab Dashboard</div>
-        <button onClick={logout} aria-label="Logout">
-          <LogOut size={20} />
+        <button onClick={openSheet} aria-label="Menu" className="p-1 -ml-1">
+          <Menu size={22} />
         </button>
+        <div className="font-bold">Cab Dashboard</div>
+        <div className="w-6" />
       </header>
 
       <div className="text-center py-4">

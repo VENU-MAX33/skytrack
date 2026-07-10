@@ -128,6 +128,22 @@ export function emitNotification(payload: unknown): void {
   getIo().to(rooms.admin).emit('notification:new', payload);
 }
 
+/** Live vehicle GPS position (phone-as-GPS ping) for the admin tracking map. */
+export function emitVehiclePosition(payload: {
+  rtoNo: string;
+  lat: number;
+  lng: number;
+  status: string;
+  speed: number;
+}): void {
+  getIo().to(rooms.admin).emit('vehicle:position', payload);
+}
+
+/** Notify admin that a new employee feedback entry has been submitted. */
+export function emitFeedbackNew(payload: unknown): void {
+  getIo().to(rooms.admin).emit('feedback:new', payload);
+}
+
 /** Notify admin + the requesting employee that their location request was approved. */
 export function emitLocationRequestApproved(payload: {
   employeeMongoId: string;

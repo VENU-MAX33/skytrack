@@ -3,9 +3,12 @@ import type { ReactNode } from 'react';
 import { loginRequest } from '../api/auth';
 import { TOKEN_KEY } from '../api/client';
 
-interface AuthUser {
+export type AdminRole = 'admin' | 'staff';
+
+export interface AuthUser {
   name: string;
   email: string;
+  role: AdminRole;
 }
 
 interface AuthContextValue {

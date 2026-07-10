@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, useMemo, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Users, MapPin, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import FormField from "../components/FormField";
 import { getEmployee, createEmployee, updateEmployee, getRoutes } from "../api";
 import type { Employee, Route } from "../api";
 import { routeColor } from "../lib/routeColors";
+import { nominatimGeocode } from "../lib/geocode";
 import { useToast } from "../context/ToastContext";
 
 const EMPTY: Employee = {
@@ -40,55 +41,31 @@ export default function EmployeeForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof Employee, string>>>({});
   const [saving, setSaving] = useState(false);
   const [fetchingLoc, setFetchingLoc] = useState(false);
-  const [routeStatus, setRouteStatus] = useState<{ match: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     getRoutes().then(setRoutes);
     if (id) getEmployee(id).then((e) => { if (e) setForm(e); });
   }, [id]);
 
-  const checkRouteMatch = useCallback((latLong: string, routeList: Route[]) => {
-    const parts = latLong.split(",").map((s) => parseFloat(s.trim()));
+  // No auto-assignment: the admin picks the route, and the status just confirms
+  // the connection between the employee's location and that chosen route.
+  const routeStatus = useMemo((): { match: string; ok: boolean } | null => {
+    if (!form.route) return null;
+    const chosen = routes.find((r) => r.name === form.route);
+    if (!chosen) return null;
+    const parts = form.latLong.split(",").map((s) => parseFloat(s.trim()));
     if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-      setRouteStatus(null);
-      return;
+      return { match: `Route selected: ${chosen.name} — fetch or enter the location to connect it`, ok: true };
     }
-    const [lat, lng] = parts;
-    const configured = routeList.filter((r) => r.destLat && r.destLng);
-    if (configured.length === 0) {
-      setRouteStatus(null);
-      return;
+    if (!chosen.destLat || !chosen.destLng) {
+      return { match: `Connected to Route: ${chosen.name}`, ok: true };
     }
-    let best: { name: string; dist: number } | null = null;
-    for (const r of configured) {
-      if (!r.destLat || !r.destLng) continue;
-      const dist = haversineKm(lat, lng, r.destLat, r.destLng);
-      if (dist <= 5 && (!best || dist < best.dist)) best = { name: r.name, dist };
-    }
-    if (best) {
-      // Auto-assign the nearest route unless the admin already picked a valid one
-      let autoAssigned = false;
-      setForm((f) => {
-        const manualChoice = f.route && routeList.some((r) => r.name === f.route);
-        if (manualChoice || f.route === best!.name) return f;
-        autoAssigned = true;
-        return { ...f, route: best!.name };
-      });
-      setRouteStatus({
-        match: `${autoAssigned ? "Auto-assigned to" : "Within"} Route: ${best.name} (${best.dist.toFixed(1)} km)`,
-        ok: true,
-      });
-    } else {
-      setRouteStatus({ match: "Not within any defined route area (5 km radius)", ok: false });
-    }
-  }, []);
+    const dist = haversineKm(parts[0], parts[1], chosen.destLat, chosen.destLng);
+    return { match: `Connected to Route: ${chosen.name} (${dist.toFixed(1)} km from route destination)`, ok: true };
+  }, [form.route, form.latLong, routes]);
 
   function set(field: keyof Employee, value: string) {
-    setForm((f) => {
-      const next = { ...f, [field]: value };
-      if (field === "latLong") checkRouteMatch(value, routes);
-      return next;
-    });
+    setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => ({ ...e, [field]: undefined }));
   }
 
@@ -96,16 +73,17 @@ export default function EmployeeForm() {
     if (!form.address.trim()) { toast.error("Enter employee address first"); return; }
     setFetchingLoc(true);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.address)}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { "User-Agent": "MonitorX-TMS/1.0" } });
-      const data = await res.json();
-      if (data.length > 0) {
-        const latLong = `${parseFloat(data[0].lat)},${parseFloat(data[0].lon)}`;
+      const result = await nominatimGeocode(form.address);
+      if (result) {
+        const latLong = `${result.lat},${result.lng}`;
         setForm((f) => ({ ...f, latLong }));
-        checkRouteMatch(latLong, routes);
-        toast.success("Location fetched from address");
+        toast.success(
+          result.approximate
+            ? `Approximate location (PIN area): ${result.label}`
+            : `Location found: ${result.label}`
+        );
       } else {
-        toast.error("Could not geocode address — enter lat/lng manually");
+        toast.error("Address not found — try a simpler form (e.g. \"Area, City\") or enter lat/lng manually");
       }
     } catch {
       toast.error("Geocoding failed — check network connection");
@@ -119,7 +97,6 @@ export default function EmployeeForm() {
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.id.trim()) errs.id = "Employee ID is required";
     if (!form.contact.trim()) errs.contact = "Contact is required";
-    if (routeStatus && !routeStatus.ok) errs.latLong = "Location not in any route — cannot save";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -247,7 +224,7 @@ export default function EmployeeForm() {
                   {routeStatus.match}
                 </div>
               )}
-              {form.latLong.trim() && !routeStatus && (
+              {form.latLong.trim() && (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(form.latLong.trim())}`}
                   target="_blank"
@@ -272,7 +249,7 @@ export default function EmployeeForm() {
                   title={form.route || "No route assigned"}
                 />
                 <select className={SELECT} value={form.route} onChange={(e) => set("route", e.target.value)}>
-                  <option value="">-- Select Route (or auto-detected) --</option>
+                  <option value="">-- Select Route --</option>
                   {routes.map((r) => (
                     <option key={r.id} value={r.name}>{r.name}</option>
                   ))}

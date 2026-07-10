@@ -6,6 +6,7 @@ import L from "leaflet";
 import { getVehiclePositions } from "../api";
 import type { VehiclePosition } from "../api";
 import { useToast } from "../context/ToastContext";
+import { useRealtime } from "../context/RealtimeContext";
 
 // Fix default icon path issue with Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -74,6 +75,21 @@ export default function VehicleTracking() {
     const interval = setInterval(load, POLL_MS);
     return () => clearInterval(interval);
   }, [load]);
+
+  // Instant marker moves from driver phone-GPS pings (polling stays as fallback)
+  const { on } = useRealtime();
+  useEffect(() => {
+    return on("vehicle:position", (payload) => {
+      const upd = payload as VehiclePosition;
+      setVehicles((prev) => {
+        const idx = prev.findIndex((v) => v.rtoNo === upd.rtoNo);
+        if (idx === -1) return [...prev, upd];
+        const next = [...prev];
+        next[idx] = upd;
+        return next;
+      });
+    });
+  }, [on]);
 
   // ?vehicle= deep link (from Live Trip Monitor): select and fly to that vehicle once loaded
   const [deepLinkDone, setDeepLinkDone] = useState(false);

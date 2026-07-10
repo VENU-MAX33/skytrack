@@ -5,16 +5,22 @@ import { getVehicles, deleteVehicle } from "../api";
 import type { Vehicle } from "../api";
 import Pagination from "../components/Pagination";
 import { exportToCsv } from "../lib/exportCsv";
+import { useToast } from "../context/ToastContext";
+import { useVendors } from "../hooks/useVendors";
 
 const PAGE_SIZE = 20;
 
 export default function VehicleManagement() {
+  const vendors = useVendors();
   const [searchParams] = useSearchParams();
+  const toast = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [vendorFilter, setVendorFilter] = useState(() => searchParams.get("vendor") ?? "All");
   const [typeFilter, setTypeFilter] = useState(() => searchParams.get("type") ?? "All");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => { getVehicles().then(setVehicles); }, []);
 
@@ -38,6 +44,46 @@ export default function VehicleManagement() {
     if (!confirm("Remove this vehicle?")) return;
     await deleteVehicle(rtoNo);
     setVehicles((prev) => prev.filter((v) => v.rtoNo !== rtoNo));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(rtoNo);
+      return next;
+    });
+  }
+
+  const pageAllSelected = paginated.length > 0 && paginated.every((v) => selected.has(v.rtoNo));
+
+  function toggleSelectPage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (pageAllSelected) paginated.forEach((v) => next.delete(v.rtoNo));
+      else paginated.forEach((v) => next.add(v.rtoNo));
+      return next;
+    });
+  }
+
+  function toggleSelect(rtoNo: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(rtoNo)) next.delete(rtoNo);
+      else next.add(rtoNo);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} selected vehicle${selected.size > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    const results = await Promise.allSettled(ids.map((rtoNo) => deleteVehicle(rtoNo)));
+    const failed = ids.filter((_, i) => results[i].status === "rejected");
+    const deleted = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
+    setVehicles((prev) => prev.filter((v) => !deleted.has(v.rtoNo)));
+    setSelected(new Set(failed));
+    setBulkDeleting(false);
+    if (failed.length === 0) toast.success(`Deleted ${deleted.size} vehicles`);
+    else toast.error(`Deleted ${deleted.size}, failed ${failed.length} — failed rows stay selected`);
   }
 
   return (
@@ -49,6 +95,17 @@ export default function VehicleManagement() {
           <h1 className="text-[18px] font-semibold text-[#222222]">Vehicle Management</h1>
         </div>
         <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-[#D22630] text-white px-4 py-2 rounded text-[13px] hover:bg-[#b01f28] transition-colors flex items-center gap-2 disabled:opacity-60"
+              title="Delete all selected vehicles"
+            >
+              <Trash2 className="w-4 h-4" />
+              {bulkDeleting ? "Deleting…" : `Delete Selected (${selected.size})`}
+            </button>
+          )}
           <button
             onClick={() => exportToCsv("vehicles.csv", filtered)}
             className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
@@ -100,8 +157,7 @@ export default function VehicleManagement() {
               onChange={(e) => { setVendorFilter(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
             >
-              <option>All</option>
-              <option>RGL</option>
+              {["All", ...vendors].map((v) => <option key={v}>{v}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -134,6 +190,14 @@ export default function VehicleManagement() {
         <table className="w-full data-table text-[10px]">
           <thead>
             <tr>
+              <th className="w-8">
+                <input
+                  type="checkbox"
+                  checked={pageAllSelected}
+                  onChange={toggleSelectPage}
+                  title="Select all on this page"
+                />
+              </th>
               <th>VEHICLE RTO NO</th>
               <th>SEAT COUNT</th>
               <th>MODEL</th>
@@ -158,10 +222,17 @@ export default function VehicleManagement() {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={20} className="text-center py-8 text-[#777777]">No vehicles found</td></tr>
+              <tr><td colSpan={21} className="text-center py-8 text-[#777777]">No vehicles found</td></tr>
             ) : (
               paginated.map((vehicle) => (
-                <tr key={vehicle.rtoNo}>
+                <tr key={vehicle.rtoNo} className={selected.has(vehicle.rtoNo) ? "bg-[#FFF5F5]" : ""}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(vehicle.rtoNo)}
+                      onChange={() => toggleSelect(vehicle.rtoNo)}
+                    />
+                  </td>
                   <td className="font-medium whitespace-nowrap">{vehicle.rtoNo}</td>
                   <td>{vehicle.seatCount}</td>
                   <td>{vehicle.model}</td>

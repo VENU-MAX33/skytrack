@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info } from "lucide-react";
+import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCompanyConfig } from "../api";
 import {
@@ -9,6 +9,7 @@ import {
   type AppNotification,
 } from "../api/notifications";
 import { useRealtime } from "../context/RealtimeContext";
+import { useAuth } from "../context/AuthContext";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -39,11 +40,15 @@ function relativeTime(iso: string): string {
 export default function Header() {
   const navigate = useNavigate();
   const { on } = useRealtime();
+  const { user, logout } = useAuth();
   const [companyName, setCompanyName] = useState("MonitorX");
+  const [companyLogo, setCompanyLogo] = useState("");
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profilePanelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     getNotifications()
@@ -52,7 +57,12 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-    getCompanyConfig().then((cfg) => { if (cfg.name) setCompanyName(cfg.name); }).catch(() => {});
+    getCompanyConfig()
+      .then((cfg) => {
+        if (cfg.name) setCompanyName(cfg.name);
+        setCompanyLogo(cfg.logoBase64 || "");
+      })
+      .catch(() => {});
     load();
   }, [load]);
 
@@ -75,6 +85,22 @@ export default function Header() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    if (!profileOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (profilePanelRef.current && !profilePanelRef.current.contains(e.target as Node)) setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [profileOpen]);
+
+  function handleLogout() {
+    setProfileOpen(false);
+    logout();
+    navigate("/login");
+  }
 
   async function handleOpen() {
     const next = !open;
@@ -105,9 +131,17 @@ export default function Header() {
       <nav className="flex-1 flex items-center justify-between px-4 bg-white h-[51px]">
         {/* Left side - Company */}
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#0047B2] rounded flex items-center justify-center">
-            <span className="text-white text-xs font-bold">{initials(companyName)}</span>
-          </div>
+          {companyLogo ? (
+            <img
+              src={companyLogo}
+              alt={companyName}
+              className="w-8 h-8 rounded object-contain bg-white border border-[#E0E4E9]"
+            />
+          ) : (
+            <div className="w-8 h-8 bg-[#0047B2] rounded flex items-center justify-center">
+              <span className="text-white text-xs font-bold">{initials(companyName)}</span>
+            </div>
+          )}
           <span className="text-[#222222] text-[13px] font-medium">{companyName}</span>
         </div>
 
@@ -166,11 +200,51 @@ export default function Header() {
           </div>
 
           {/* User Avatar */}
-          <button className="flex items-center gap-2 p-1 hover:bg-[#F5F6FA] rounded">
-            <div className="w-[26px] h-[26px] rounded-full bg-[#0047B2] flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
-            </div>
-          </button>
+          <div className="relative" ref={profilePanelRef}>
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              className="flex items-center gap-2 p-1 hover:bg-[#F5F6FA] rounded"
+              title={user?.name}
+            >
+              <div className="w-[26px] h-[26px] rounded-full bg-[#0047B2] flex items-center justify-center">
+                {user ? (
+                  <span className="text-white text-[10px] font-bold">{initials(user.name)}</span>
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
+              </div>
+            </button>
+
+            {profileOpen && user && (
+              <div className="absolute right-0 mt-2 w-[240px] bg-white rounded-lg shadow-xl border border-[#E0E4E9] z-[1200]">
+                <div className="px-4 py-3 border-b border-[#E0E4E9] flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#0047B2] flex items-center justify-center shrink-0">
+                    <span className="text-white text-[12px] font-bold">{initials(user.name)}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-[#222] truncate">{user.name}</div>
+                    <div className="text-[11px] text-[#777] truncate">{user.email}</div>
+                  </div>
+                </div>
+                <div className="px-4 py-2 border-b border-[#E0E4E9]">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      user.role === "admin" ? "bg-[#E8F4FD] text-[#0047B2]" : "bg-[#F5F6FA] text-[#555]"
+                    }`}
+                  >
+                    {user.role === "admin" ? "ADMIN" : "STAFF"}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-[13px] text-[#D22630] hover:bg-[#FFF5F5] rounded-b-lg"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </nav>
     </header>

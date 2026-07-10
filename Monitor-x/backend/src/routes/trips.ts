@@ -7,7 +7,7 @@ import { Employee } from '../models/Employee.js';
 import { toTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday } from '../lib/statusBuckets.js';
-import { emitTripFrozen } from '../websocket/index.js';
+import { emitTripFrozen, emitTripStatus } from '../websocket/index.js';
 
 export const tripsRouter = Router();
 
@@ -86,8 +86,12 @@ tripsRouter.post(
     if (employees.length === 0) throw new HttpError(422, 'Trip needs at least one employee');
 
     const date = body.date ?? localToday();
-    const count = await Trip.countDocuments({ date });
-    const tripId = `TRP-${date.replace(/-/g, '').slice(2)}-${String(count + 1).padStart(3, '0')}`;
+    // Next sequence = highest existing sequence for the day + 1 (a plain count
+    // collides with the unique tripId index once any trip of the day is deleted).
+    const prefix = `TRP-${date.replace(/-/g, '').slice(2)}-`;
+    const last = await Trip.findOne({ tripId: new RegExp(`^${prefix}`) }).sort({ tripId: -1 });
+    const lastSeq = last ? parseInt(last.tripId.slice(prefix.length), 10) : 0;
+    const tripId = `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
 
     const doc = await Trip.create({
       tripId,
@@ -105,6 +109,56 @@ tripsRouter.post(
     });
     await doc.populate(TRIP_POPULATE);
     res.status(201).json(toTripDTO(doc as unknown as Populated));
+  })
+);
+
+// The main admin can delete any trip, locked or not. Staff can only delete
+// unlocked trips — deleting a locked/frozen trip is admin-only.
+tripsRouter.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const doc = await Trip.findOne({ tripId: req.params.id });
+    if (!doc) throw new HttpError(404, 'Trip not found');
+    if (doc.frozen && req.auth?.role !== 'admin') {
+      throw new HttpError(403, 'Only the main admin can delete a locked trip');
+    }
+    await doc.deleteOne();
+    res.status(204).end();
+  })
+);
+
+// PUT /api/trips/:id/vehicle — change the trip's vehicle at ANY status (admin + staff).
+// The trip record is the source for all reports/exports, so the change persists there.
+tripsRouter.put(
+  '/:id/vehicle',
+  asyncHandler(async (req, res) => {
+    const { vehicleNo } = req.body as { vehicleNo?: string };
+    if (!vehicleNo?.trim()) throw new HttpError(400, 'vehicleNo is required');
+
+    const vehicle = await Vehicle.findOne({ rtoNo: vehicleNo.trim() });
+    if (!vehicle) throw new HttpError(422, `Vehicle ${vehicleNo} does not exist`);
+
+    const doc = await Trip.findOne({ tripId: req.params.id });
+    if (!doc) throw new HttpError(404, 'Trip not found');
+
+    doc.vehicleId = vehicle._id;
+    doc.vendor = vehicle.vendor;
+    // Ongoing/future trips follow the new vehicle's driver; a completed trip's
+    // driver history stays untouched — only the vehicle number is corrected.
+    if (!doc.completedAt && vehicle.driverId) {
+      doc.driverId = vehicle.driverId;
+    }
+    await doc.save();
+    await doc.populate(TRIP_POPULATE);
+    const populated = doc as unknown as Populated;
+    const dto = toTripDTO(populated);
+
+    emitTripStatus({
+      trip: dto,
+      driverId: populated.driverId?._id.toString() ?? '',
+      employeeIds: populated.employeeIds.map((e) => e._id.toString()),
+    });
+    res.json(dto);
   })
 );
 

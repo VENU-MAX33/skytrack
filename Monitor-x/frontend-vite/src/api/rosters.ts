@@ -1,5 +1,5 @@
 import type { RosterEntry } from './types';
-import { apiGet, apiPost, apiPut } from './client';
+import { apiGet, apiPost, apiPut, apiDelete } from './client';
 
 export interface RosterFilters {
   date?: string;
@@ -35,4 +35,14 @@ export async function saveRosters(entries: RosterSaveEntry[]): Promise<RosterEnt
 
 export async function updateRosterStatus(id: string, status: string): Promise<RosterEntry> {
   return apiPut<RosterEntry>(`/api/rosters/${encodeURIComponent(id)}`, { status });
+}
+
+/** Delete saved roster shifts for one employee/date. tripType 'both' removes login + logout. */
+export async function deleteRosters(
+  empId: string,
+  date: string,
+  tripType: 'pickup' | 'drop' | 'both'
+): Promise<{ deleted: number }> {
+  const params = new URLSearchParams({ empId, date, tripType });
+  return apiDelete<{ deleted: number }>(`/api/rosters?${params.toString()}`);
 }

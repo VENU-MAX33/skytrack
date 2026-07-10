@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut } from './client';
-import type { DriverTrip } from './types';
+import type { DriverTrip, CompanyConfig } from './types';
 
 export function getDriverTrips(): Promise<DriverTrip[]> {
   return apiGet<DriverTrip[]>('/api/driver/trips');
@@ -17,8 +17,13 @@ export function verifyOtp(tripId: string, empId: string, code: string): Promise<
   return apiPost<DriverTrip>(`/api/driver/trips/${tripId}/verify-otp/${empId}`, { code });
 }
 
-export function startTrip(tripId: string, force = false): Promise<DriverTrip> {
-  return apiPut<DriverTrip>(`/api/driver/trips/${tripId}/start${force ? '?force=true' : ''}`);
+export function startTrip(tripId: string): Promise<DriverTrip> {
+  return apiPut<DriverTrip>(`/api/driver/trips/${tripId}/start`);
+}
+
+// Office/company location — the final destination once all pickups are done.
+export function getCompanyConfig(): Promise<CompanyConfig> {
+  return apiGet<CompanyConfig>('/api/company-config');
 }
 
 export function completeTrip(tripId: string): Promise<DriverTrip> {

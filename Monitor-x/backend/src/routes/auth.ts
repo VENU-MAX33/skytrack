@@ -17,7 +17,7 @@ authRouter.post(
       throw new HttpError(401, 'Invalid email or password');
     }
 
-    const token = signToken({ sub: user._id.toString(), role: 'admin' });
-    res.json({ token, user: { name: user.name, email: user.email, role: 'admin' } });
+    const token = signToken({ sub: user._id.toString(), role: user.role });
+    res.json({ token, user: { name: user.name, email: user.email, role: user.role } });
   })
 );

@@ -20,8 +20,50 @@ export function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
 }
 
-// Pluggable SMS delivery. Dev-mode logs to console; msg91 is stubbed until creds exist.
+// Pluggable SMS delivery. Dev-mode logs to console; fast2sms sends real SMS; msg91 is stubbed.
 async function deliverSms(phone: string, code: string): Promise<void> {
+  if (env.smsProvider === 'fast2sms') {
+    if (!env.fast2smsApiKey) {
+      throw new HttpError(500, 'Fast2SMS is selected but FAST2SMS_API_KEY is not set');
+    }
+    // Fast2SMS wants a bare 10-digit Indian mobile number (no +91 / spaces).
+    const number = phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
+    if (!/^\d{10}$/.test(number)) {
+      throw new HttpError(422, `Cannot send SMS: "${phone}" is not a valid 10-digit mobile number`);
+    }
+
+    interface Fast2SmsResponse { return?: boolean; message?: unknown }
+    const send = async (body: Record<string, string>): Promise<Fast2SmsResponse> => {
+      try {
+        const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+          method: 'POST',
+          headers: { authorization: env.fast2smsApiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        return (await res.json()) as Fast2SmsResponse;
+      } catch {
+        throw new HttpError(502, 'Fast2SMS request failed — check network connection and API key');
+      }
+    };
+    const detail = (d: Fast2SmsResponse): string =>
+      Array.isArray(d.message) ? d.message.join('; ') : String(d.message ?? 'unknown error');
+
+    // Prefer the OTP route (cheapest, pre-approved template). Accounts that haven't
+    // completed Fast2SMS "website verification" get rejected there — fall back to
+    // the Quick SMS route, which unlocks after the first ₹100+ recharge.
+    let data = await send({ route: 'otp', variables_values: code, numbers: number });
+    if (!data.return && /website verification/i.test(detail(data))) {
+      data = await send({
+        route: 'q',
+        message: `Your MonitorX OTP is ${code}. Valid for 5 minutes.`,
+        numbers: number,
+      });
+    }
+    if (!data.return) {
+      throw new HttpError(502, `Fast2SMS could not send the SMS: ${detail(data)}`);
+    }
+    return;
+  }
   if (env.smsProvider === 'msg91') {
     if (!env.msg91.authKey || !env.msg91.templateId) {
       throw new HttpError(500, 'MSG91 is selected but not configured (set MSG91_* env vars)');

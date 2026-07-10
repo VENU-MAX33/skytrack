@@ -8,8 +8,22 @@ import { toVehicleDTO } from '../mappers.js';
 
 export const driverAuthRouter = Router();
 
-function driverProfile(driver: { name: string; contact: string; vendor: string; email: string }) {
-  return { name: driver.name, contact: driver.contact, vendor: driver.vendor, email: driver.email };
+function driverProfile(driver: {
+  name: string;
+  contact: string;
+  vendor: string;
+  email: string;
+  badgeNumber: string;
+  dlNumber: string;
+}) {
+  return {
+    name: driver.name,
+    contact: driver.contact,
+    vendor: driver.vendor,
+    email: driver.email,
+    badgeNumber: driver.badgeNumber,
+    dlNumber: driver.dlNumber,
+  };
 }
 
 // POST /api/driver/request-otp — validate phone, send OTP

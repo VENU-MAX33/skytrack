@@ -12,6 +12,8 @@ import type {
   SosAlert,
   LocationRequestDTO,
   EmployeeDocumentDTO,
+  TripReportRow,
+  FeedbackDTO,
 } from './types/dto.js';
 import type { EmployeeDoc } from './models/Employee.js';
 import type { VehicleDoc } from './models/Vehicle.js';
@@ -22,6 +24,7 @@ import type { RosterDoc } from './models/Roster.js';
 import type { SOSAlertDoc } from './models/SOSAlert.js';
 import type { LocationRequestDoc } from './models/LocationRequest.js';
 import type { EmployeeDocumentDoc } from './models/EmployeeDocument.js';
+import type { FeedbackDoc } from './models/Feedback.js';
 import { STATUS_COLORS, type TripStatus } from './lib/statusBuckets.js';
 
 export function toEmployeeDTO(doc: HydratedDocument<EmployeeDoc>): Employee {
@@ -154,6 +157,30 @@ export function toTripDTO(doc: PopulatedTrip): Trip {
   };
 }
 
+// Flat, spreadsheet-friendly row for the Reports feature (CSV export + report table).
+export function toTripReportRow(doc: PopulatedTrip): TripReportRow {
+  const verifiedSet = new Set((doc.verifiedEmployees ?? []).map((v) => v.toString()));
+  return {
+    id: doc.tripId,
+    date: doc.date,
+    type: doc.type,
+    shiftTime: doc.shiftTime,
+    status: doc.status,
+    route: doc.routeId?.name || doc.location || '',
+    vehicleNo: doc.vehicleId?.rtoNo ?? '',
+    vendor: doc.vendor || doc.vehicleId?.vendor || '',
+    driverName: doc.driverId?.name ?? '',
+    driverContact: doc.driverId?.contact ?? '',
+    escort: doc.escort,
+    empCount: doc.employeeIds.length,
+    verifiedCount: doc.employeeIds.filter((e) => verifiedSet.has(e._id.toString())).length,
+    employeeIds: doc.employeeIds.map((e) => e.empId).join('; '),
+    employeeNames: doc.employeeIds.map((e) => e.name).join('; '),
+    startedAt: doc.startedAt ? doc.startedAt.toISOString() : '',
+    completedAt: doc.completedAt ? doc.completedAt.toISOString() : '',
+  };
+}
+
 function statusColor(status: string): string {
   return STATUS_COLORS[status as TripStatus] ?? 'text-[#777777]';
 }
@@ -250,6 +277,8 @@ export function toRosterDTO(doc: PopulatedRoster): RosterEntry {
     id: doc._id.toString(),
     name: doc.employeeId?.name ?? '',
     empId: doc.employeeId?.empId ?? '',
+    date: doc.date,
+    tripType: doc.tripType,
     shiftTime: doc.timing,
     route: doc.employeeId?.route ?? '',
     location: doc.employeeId?.location ?? '',
@@ -287,5 +316,23 @@ export function toEmployeeDocDTO(doc: HydratedDocument<EmployeeDocumentDoc>): Em
     name: doc.name,
     mimeType: doc.mimeType,
     uploadedAt: doc.uploadedAt.toISOString(),
+  };
+}
+
+type PopulatedFeedback = Omit<HydratedDocument<FeedbackDoc>, 'employeeId'> & {
+  employeeId: HydratedDocument<EmployeeDoc> | null;
+};
+
+export function toFeedbackDTO(doc: PopulatedFeedback): FeedbackDTO {
+  return {
+    id: doc._id.toString(),
+    employee: {
+      id: doc.employeeId?.empId ?? '',
+      name: doc.employeeId?.name ?? '',
+      contact: doc.employeeId?.contact ?? '',
+    },
+    message: doc.message,
+    read: doc.read,
+    submittedAt: doc.submittedAt.toISOString(),
   };
 }

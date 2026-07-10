@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
-export type Role = 'admin' | 'driver' | 'employee';
+export type Role = 'admin' | 'driver' | 'employee' | 'staff';
 
 export interface AuthPayload {
   sub: string; // document id (User / Driver / Employee)
@@ -27,7 +27,9 @@ function readToken(req: Request): string | null {
 
 export function verifyToken(token: string): AuthPayload {
   const decoded = jwt.verify(token, env.jwtSecret) as jwt.JwtPayload;
-  return { sub: String(decoded.sub), role: (decoded.role as Role) ?? 'admin' };
+  // Every login path signs an explicit role — a token missing one is malformed, not an admin by default.
+  if (!decoded.role) throw new Error('Token missing role claim');
+  return { sub: String(decoded.sub), role: decoded.role as Role };
 }
 
 export function signToken(
@@ -71,5 +73,18 @@ export function requireRole(...roles: Role[]) {
     } catch {
       res.status(401).json({ error: 'Invalid or expired token' });
     }
+  };
+}
+
+// Per-verb permission gate for routers where some methods (e.g. GET) stay open
+// to every authenticated role but others (e.g. POST/PUT/DELETE) are admin-only.
+// Assumes requireAuth already ran on this router and populated req.auth.
+export function requirePermission(check: (role: Role) => boolean) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.auth || !check(req.auth.role)) {
+      res.status(403).json({ error: 'Forbidden: insufficient permissions' });
+      return;
+    }
+    next();
   };
 }

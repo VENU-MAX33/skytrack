@@ -110,6 +110,10 @@ async function seed() {
   const passwordHash = await bcrypt.hash('Admin@123', 10);
   await User.create({ email: 'admin@monitorx.com', passwordHash, name: 'Admin', role: 'admin' });
 
+  // 1b. Sample staff (limited-access) login for local testing
+  const staffPasswordHash = await bcrypt.hash('Staff@123', 10);
+  await User.create({ email: 'staff@monitorx.com', passwordHash: staffPasswordHash, name: 'Staff', role: 'staff' });
+
   // 2. Routes
   const routes = await Route.insertMany(ROUTES);
 
@@ -322,6 +326,7 @@ async function seed() {
   console.log('');
   console.log('Logins:');
   console.log('  Admin:    admin@monitorx.com / Admin@123');
+  console.log('  Staff:    staff@monitorx.com / Staff@123 (limited access)');
   console.log(`  Employee: <empId e.g. EMP001> / ${env.defaultEmployeePassword}`);
   console.log(`  Driver:   <phone e.g. ${drivers[0].contact}> -> set password on first login`);
 
