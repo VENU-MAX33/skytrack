@@ -19,6 +19,7 @@ import { driverTrackingRouter } from './routes/driver-tracking.js';
 import { employeeAuthRouter } from './routes/employee-auth.js';
 import { employeeTripsRouter } from './routes/employee-trips.js';
 import { sosRouter } from './routes/sos.js';
+import { escortReportRouter } from './routes/escort-report.js';
 import { companyConfigRouter } from './routes/company-config.js';
 import { employeeLocationRouter } from './routes/employee-location.js';
 import { employeeLocationRequestRouter } from './routes/employee-location-request.js';
@@ -105,6 +106,7 @@ export function createApp(): Express {
   app.use('/api/employee/feedback', requireRole('employee'), employeeFeedbackRouter);
   // SOS: employees raise alerts; admins acknowledge (router enforces per-route roles)
   app.use('/api/sos', sosRouter);
+  app.use('/api/escort-report', escortReportRouter);
 
   // --- Back-office: location requests + employee documents + notifications ---
   app.use('/api/location-requests', requireBackOffice, locationRequestsRouter);
