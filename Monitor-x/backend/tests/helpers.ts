@@ -1,18 +1,26 @@
+import http from 'http';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../src/app.js';
+import { initSocket } from '../src/websocket/index.js';
 import { signToken } from '../src/middleware/auth.js';
 import { Driver } from '../src/models/Driver.js';
 import { Employee } from '../src/models/Employee.js';
 import { User } from '../src/models/User.js';
 
 let mongod: MongoMemoryServer | null = null;
+let httpServer: http.Server | null = null;
 
-/** Boot an isolated in-memory MongoDB and connect mongoose to it. */
+/** Boot an isolated in-memory MongoDB, connect mongoose, and init Socket.IO. */
 export async function startTestDb(): Promise<void> {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+  // Init a Socket.IO server (not listening) so emit helpers used by routes work.
+  if (!httpServer) {
+    httpServer = http.createServer();
+    initSocket(httpServer);
+  }
 }
 
 /** Disconnect mongoose and shut the in-memory MongoDB down. */

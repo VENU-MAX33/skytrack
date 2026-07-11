@@ -9,6 +9,7 @@ import { toTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday } from '../lib/statusBuckets.js';
 import { emitTripFrozen, emitTripStatus } from '../websocket/index.js';
+import { idempotent } from '../middleware/idempotency.js';
 
 export const tripsRouter = Router();
 
@@ -76,6 +77,7 @@ tripsRouter.get(
 
 tripsRouter.post(
   '/',
+  idempotent(),
   asyncHandler(async (req, res) => {
     const body = req.body as {
       type?: string;

@@ -80,7 +80,10 @@ export default function SosButton({ tripId }: { tripId?: string }) {
     try {
       const location = await getLocation();
       const reason = [preset, custom.trim()].filter(Boolean).join(' — ');
-      await triggerSos(tripId, location, reason, photoBase64 || undefined);
+      // Stable key per attempt: a network retry of this same send is de-duplicated
+      // server-side into a single alert.
+      const idempotencyKey = crypto.randomUUID();
+      await triggerSos(tripId, location, reason, photoBase64 || undefined, idempotencyKey);
       toast.success('SOS sent. Help has been alerted.');
       reset();
     } catch (err) {

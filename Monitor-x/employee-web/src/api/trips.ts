@@ -13,9 +13,14 @@ export function triggerSos(
   tripId?: string,
   location?: string,
   reason?: string,
-  photoBase64?: string
+  photoBase64?: string,
+  idempotencyKey?: string
 ): Promise<unknown> {
-  return apiPost('/api/sos', { tripId, location, reason, photoBase64 });
+  return apiPost(
+    '/api/sos',
+    { tripId, location, reason, photoBase64 },
+    idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined
+  );
 }
 
 export function shareLocation(tripId: string, lat: number, lng: number): Promise<void> {

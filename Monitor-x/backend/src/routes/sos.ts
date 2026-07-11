@@ -8,6 +8,7 @@ import { User } from '../models/User.js';
 import { toSosDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { requireRole } from '../middleware/auth.js';
+import { idempotent } from '../middleware/idempotency.js';
 import { createSos, acknowledgeSos } from '../services/sos.service.js';
 import { createNotification } from '../services/notification.service.js';
 import { emitSos, emitSosAck } from '../websocket/index.js';
@@ -21,6 +22,7 @@ type PopulatedSos = Parameters<typeof toSosDTO>[0];
 sosRouter.post(
   '/',
   requireRole('employee'),
+  idempotent(),
   asyncHandler(async (req, res) => {
     const { tripId, location, reason, photoBase64 } = req.body as {
       tripId?: string;

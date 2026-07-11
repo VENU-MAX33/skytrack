@@ -42,11 +42,11 @@ export async function apiGet<T>(path: string): Promise<T> {
   return handle<T>(res, 'GET', path);
 }
 
-export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+export async function apiPost<T>(path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
   if (!BASE_URL) throw new Error(`No BASE_URL configured for POST ${path}`);
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...extraHeaders },
     body: JSON.stringify(body ?? {}),
   });
   return handle<T>(res, 'POST', path);
