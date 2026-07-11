@@ -7,6 +7,7 @@ export interface TripDoc {
   type: string;
   date: string;
   escort: string;
+  escortName: string;
   shiftTime: string;
   vehicleId: Types.ObjectId;
   driverId: Types.ObjectId;
@@ -27,6 +28,7 @@ const tripSchema = new Schema<TripDoc>({
   type: { type: String, enum: ['PickUp', 'Drop'], required: true },
   date: { type: String, required: true, index: true },
   escort: { type: String, default: 'No' },
+  escortName: { type: String, default: '' },
   shiftTime: { type: String, default: '' },
   vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true },
   driverId: { type: Schema.Types.ObjectId, ref: 'Driver', required: true },

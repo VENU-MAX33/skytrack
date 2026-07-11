@@ -103,6 +103,7 @@ export interface Trip {
   type: string;
   date: string;
   escort: string;
+  escortName: string;
   shiftTime: string;
   empCount: number;
   location: string;
@@ -136,6 +137,7 @@ export interface DriverTrip {
   date: string;
   shiftTime: string;
   escort: string;
+  escortName: string;
   location: string;
   route: string;
   vehicleNo: string;
@@ -157,6 +159,8 @@ export interface EmployeeTrip {
   route: string;
   vehicleNo: string;
   vendor: string;
+  escort: string;
+  escortName: string;
   frozen: boolean;
   startedAt: string | null;
   completedAt: string | null;
