@@ -35,16 +35,19 @@ export default function Login() {
             <span className="text-white text-xl font-bold">M</span>
           </div>
           <h1 className="text-[20px] font-semibold text-[#222222]">MonitorX</h1>
-          <p className="text-[13px] text-[#777777] mt-1">Transport Management System</p>
+          <p className="text-[13px] text-[#595959] mt-1">Transport Management System</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[13px] text-[#777777] mb-1">
+            <label htmlFor="login-email" className="block text-[13px] text-[#595959] mb-1">
               Email
             </label>
             <input
+              id="login-email"
+              name="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
@@ -54,11 +57,14 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-[13px] text-[#777777] mb-1">
+            <label htmlFor="login-password" className="block text-[13px] text-[#595959] mb-1">
               Password
             </label>
             <input
+              id="login-password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -68,7 +74,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-[12px] text-[#D22630]">{error}</p>
+            <p role="alert" className="text-[12px] text-[#D22630]">{error}</p>
           )}
 
           <button

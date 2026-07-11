@@ -10,7 +10,7 @@ interface FormFieldProps {
 export default function FormField({ label, error, required, children }: FormFieldProps) {
   return (
     <div>
-      <label className="block text-[13px] text-[#777777] mb-1">
+      <label className="block text-[13px] text-[#595959] mb-1">
         {label}
         {required && <span className="text-[#D22630] ml-0.5">*</span>}
       </label>

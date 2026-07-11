@@ -4,15 +4,37 @@ import { Trip, type TripDoc } from '../models/Trip.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { Route } from '../models/Route.js';
 import { Employee } from '../models/Employee.js';
+import { Counter } from '../models/Counter.js';
 import { toTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday } from '../lib/statusBuckets.js';
 import { emitTripFrozen, emitTripStatus } from '../websocket/index.js';
+import { idempotent } from '../middleware/idempotency.js';
 
 export const tripsRouter = Router();
 
 const TRIP_POPULATE = 'vehicleId driverId routeId employeeIds';
 type Populated = Parameters<typeof toTripDTO>[0];
+
+// Hands out the next per-day trip id atomically. The counter is seeded once (via
+// $max) from any pre-existing trips for the day — e.g. seeded data created
+// before the counter existed — so it never collides with them; after that a
+// single $inc guarantees distinct ids even under concurrent requests.
+async function nextTripId(date: string): Promise<string> {
+  const prefix = `TRP-${date.replace(/-/g, '').slice(2)}-`;
+  const existing = await Counter.findById(prefix).lean();
+  if (!existing) {
+    const last = await Trip.findOne({ tripId: new RegExp(`^${prefix}`) }).sort({ tripId: -1 });
+    const lastSeq = last ? parseInt(last.tripId.slice(prefix.length), 10) : 0;
+    await Counter.updateOne({ _id: prefix }, { $max: { seq: lastSeq } }, { upsert: true });
+  }
+  const counter = await Counter.findByIdAndUpdate(
+    prefix,
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return `${prefix}${String(counter!.seq).padStart(3, '0')}`;
+}
 
 tripsRouter.get(
   '/',
@@ -39,22 +61,33 @@ tripsRouter.get(
       const bucket = STATUS_BUCKETS[status];
       query.status = bucket ? { $in: bucket } : status;
     }
-
-    let docs = await Trip.find(query).sort({ date: -1, shiftTime: 1 }).populate(TRIP_POPULATE);
     if (search) {
-      const s = search.toLowerCase();
-      docs = docs.filter((d) => {
-        const dto = toTripDTO(d as unknown as Populated);
-        return [dto.id, dto.vehicleNo, dto.vendor, dto.location, dto.status]
-          .some((v) => v.toLowerCase().includes(s));
-      });
+      // Search in the DB (was an in-memory scan over the whole collection).
+      // vehicleNo lives on the populated Vehicle, so resolve matching ids first.
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const vehicleIds = (await Vehicle.find({ rtoNo: rx }).select('_id')).map((v) => v._id);
+      query.$or = [
+        { tripId: rx },
+        { vendor: rx },
+        { location: rx },
+        { status: rx },
+        ...(vehicleIds.length ? [{ vehicleId: { $in: vehicleIds } }] : []),
+      ];
     }
+
+    // Cap the result set so an unfiltered view of a large, ever-growing trips
+    // collection can't load unbounded data; the newest trips are returned first.
+    const docs = await Trip.find(query)
+      .sort({ date: -1, shiftTime: 1 })
+      .limit(2000)
+      .populate(TRIP_POPULATE);
     res.json(docs.map((d) => toTripDTO(d as unknown as Populated)));
   })
 );
 
 tripsRouter.post(
   '/',
+  idempotent(),
   asyncHandler(async (req, res) => {
     const body = req.body as {
       type?: string;
@@ -86,12 +119,7 @@ tripsRouter.post(
     if (employees.length === 0) throw new HttpError(422, 'Trip needs at least one employee');
 
     const date = body.date ?? localToday();
-    // Next sequence = highest existing sequence for the day + 1 (a plain count
-    // collides with the unique tripId index once any trip of the day is deleted).
-    const prefix = `TRP-${date.replace(/-/g, '').slice(2)}-`;
-    const last = await Trip.findOne({ tripId: new RegExp(`^${prefix}`) }).sort({ tripId: -1 });
-    const lastSeq = last ? parseInt(last.tripId.slice(prefix.length), 10) : 0;
-    const tripId = `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
+    const tripId = await nextTripId(date);
 
     const doc = await Trip.create({
       tripId,

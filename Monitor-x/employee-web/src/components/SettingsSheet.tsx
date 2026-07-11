@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { X, Home, UserCircle, MessageSquare, Info, LogOut, Sun, Moon } from 'lucide-react';
+import Modal from './Modal';
 import { useAuth } from '../context/AuthContext';
 import { useSettingsSheet } from '../context/SettingsSheetContext';
 import { useDarkMode } from '../hooks/useDarkMode';
@@ -17,8 +18,6 @@ export default function SettingsSheet() {
   const { isDark, toggle } = useDarkMode();
   const navigate = useNavigate();
 
-  if (!open) return null;
-
   function go(path: string) {
     closeSheet();
     navigate(path);
@@ -30,8 +29,13 @@ export default function SettingsSheet() {
   }
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/60" onClick={closeSheet}>
-      <div className="card w-full max-w-[480px] rounded-b-none p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+    <Modal
+      open={open}
+      onClose={closeSheet}
+      title="Menu and settings"
+      align="bottom"
+      panelClassName="card w-full max-w-[480px] rounded-b-none p-5 pb-8"
+    >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-14 h-14 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--blue-soft)' }}>
@@ -76,7 +80,6 @@ export default function SettingsSheet() {
         <div className="text-center text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
           MonitorX Employee &bull; v{APP_VERSION}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

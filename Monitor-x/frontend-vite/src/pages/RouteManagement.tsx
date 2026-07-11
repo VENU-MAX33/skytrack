@@ -258,7 +258,7 @@ export default function RouteManagement() {
         ? routeColor(formMode)
         : "#0047B2";
 
-  if (loading) return <div className="p-4 text-[13px] text-[#777777]">Loading…</div>;
+  if (loading) return <div className="p-4 text-[13px] text-[#595959]">Loading…</div>;
 
   return (
     <>
@@ -491,7 +491,7 @@ export default function RouteManagement() {
           {/* Road-path preview: company → destination */}
           {(companyPt || destPt) && (
             <div className="mb-4">
-              <div className="text-[12px] text-[#777] mb-2">Route preview (company → final destination, along roads)</div>
+              <div className="text-[12px] text-[#595959] mb-2">Route preview (company → final destination, along roads)</div>
               <div className="rounded overflow-hidden" style={{ height: 280 }}>
                 <MapContainer
                   center={companyPt ?? destPt ?? BANGALORE}
@@ -558,7 +558,7 @@ export default function RouteManagement() {
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
               <thead>
-                <tr className="text-[#777] border-b border-[#eee]">
+                <tr className="text-[#595959] border-b border-[#eee]">
                   <th className="text-left py-2 pr-3 font-medium w-8"></th>
                   <th className="text-left py-2 pr-3 font-medium">Route ID</th>
                   <th className="text-left py-2 pr-3 font-medium">Name</th>

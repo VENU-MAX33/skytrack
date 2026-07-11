@@ -72,15 +72,15 @@ export default function Feedback() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Unread</div>
+          <div className="text-[12px] text-[#595959] mb-1">Unread</div>
           <div className="text-[24px] font-semibold text-[#E65100]">{counts.unread}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Read</div>
+          <div className="text-[12px] text-[#595959] mb-1">Read</div>
           <div className="text-[24px] font-semibold text-[#18751C]">{counts.read}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Total</div>
+          <div className="text-[12px] text-[#595959] mb-1">Total</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{items.length}</div>
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function Feedback() {
             className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
               tab === t.key
                 ? 'border-[#0047B2] text-[#0047B2]'
-                : 'border-transparent text-[#777] hover:text-[#222]'
+                : 'border-transparent text-[#595959] hover:text-[#222]'
             }`}
           >
             {t.label}
@@ -109,7 +109,7 @@ export default function Feedback() {
 
       {/* Feedback list */}
       {filtered.length === 0 ? (
-        <div className="dashboard-card p-10 text-center text-[#777] text-[14px]">
+        <div className="dashboard-card p-10 text-center text-[#595959] text-[14px]">
           No {tab === 'all' ? '' : tab} feedback
         </div>
       ) : (
@@ -120,9 +120,9 @@ export default function Feedback() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px] font-semibold text-[#222]">{f.employee.name}</span>
-                    <span className="text-[11px] text-[#777]">({f.employee.id})</span>
+                    <span className="text-[11px] text-[#595959]">({f.employee.id})</span>
                     <span className="text-[11px] text-[#999]">·</span>
-                    <span className="text-[11px] text-[#777]">{f.employee.contact}</span>
+                    <span className="text-[11px] text-[#595959]">{f.employee.contact}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-[#999]">
                     <Clock className="w-3 h-3" />

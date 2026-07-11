@@ -37,13 +37,13 @@ driverAuthRouter.post(
     if (!driver) throw new HttpError(404, 'Phone number not registered');
     if (driver.active !== 'Yes') throw new HttpError(403, 'This account is inactive');
 
-    const { code } = await sendOtp({
+    await sendOtp({
       purpose: 'login',
       phone: driver.contact,
       driverId: driver._id,
     });
 
-    res.json({ sent: true, devCode: code }); // devCode is null in real-SMS mode
+    res.json({ sent: true }); // the OTP is delivered by SMS only, never in the response
   })
 );
 

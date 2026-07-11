@@ -26,7 +26,8 @@ export async function getLiveTripMonitorData(filters?: TripFilters): Promise<Tri
 export async function createTrip(
   data: Partial<Omit<Trip, 'id'>> & { employeeIds?: string[]; routeName?: string }
 ): Promise<Trip> {
-  return apiPost<Trip>('/api/trips', data);
+  // Idempotency key so a retried/double-submitted create makes only one trip.
+  return apiPost<Trip>('/api/trips', data, { 'Idempotency-Key': crypto.randomUUID() });
 }
 
 export async function freezeTrip(tripId: string): Promise<Trip> {

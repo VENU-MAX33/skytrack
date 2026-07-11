@@ -27,7 +27,7 @@ export default function Pagination({ total, page, pageSize, onChange }: Paginati
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-[#E0E4E9]">
-      <span className="text-[12px] text-[#777777]">
+      <span className="text-[12px] text-[#595959]">
         Showing {start}–{end} of {total}
       </span>
       <div className="flex items-center gap-1">
@@ -40,7 +40,7 @@ export default function Pagination({ total, page, pageSize, onChange }: Paginati
         </button>
         {pages.map((p, i) =>
           p === '...' ? (
-            <span key={`dots-${i}`} className="px-2 text-[#777777] text-[12px]">…</span>
+            <span key={`dots-${i}`} className="px-2 text-[#595959] text-[12px]">…</span>
           ) : (
             <button
               key={p}

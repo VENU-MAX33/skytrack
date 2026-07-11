@@ -131,7 +131,7 @@ export default function Dashboard() {
 
       <div className="text-center py-4">
         <div className="text-[15px] font-semibold">Hi {user?.name}</div>
-        <div className="text-[13px] text-[#777]">{user?.id}</div>
+        <div className="text-[13px] text-[#595959]">{user?.id}</div>
       </div>
 
       <div className="flex flex-wrap gap-2 justify-center px-4">
@@ -145,12 +145,12 @@ export default function Dashboard() {
         <div className="mx-4 mt-4 card border-l-4 border-l-[#004b87] p-4 flex items-center gap-3">
           <KeyRound className="text-[#004b87]" />
           <div className="flex-1">
-            <div className="text-[12px] text-[#777]">Verification OTP (Trip {otp.tripId})</div>
-            <div className="text-2xl font-bold tracking-[6px] text-[#004b87]">
-              {otp.code ?? 'Check SMS'}
+            <div className="text-[12px] text-[#595959]">Verification OTP (Trip {otp.tripId})</div>
+            <div className="text-[15px] font-semibold text-[#004b87]">
+              Check your SMS for the code
             </div>
           </div>
-          <button className="text-[#777] text-[13px]" onClick={clearOtp}>
+          <button className="text-[#595959] text-[13px]" onClick={clearOtp}>
             Dismiss
           </button>
         </div>
@@ -233,19 +233,20 @@ export default function Dashboard() {
           <div className="card w-full max-w-[480px] rounded-b-none p-5 pb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="font-bold text-[16px]">Request Location Update</div>
-              <button onClick={() => setShowLocModal(false)} className="text-[#777]">
+              <button onClick={() => setShowLocModal(false)} className="text-[#595959]">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="text-[12px] text-[#777] mb-3">
+            <div className="text-[12px] text-[#595959] mb-3">
               Submit a request to update your registered pickup address. Admin will review and approve.
             </div>
 
             <div className="mb-3">
-              <label className="text-[12px] text-[#555] font-medium">New Address</label>
+              <label htmlFor="loc-new-address" className="text-[12px] text-[#555] font-medium">New Address</label>
               <div className="flex gap-2 mt-1">
                 <input
+                  id="loc-new-address"
                   className="input flex-1 text-[13px]"
                   placeholder="Enter full address"
                   value={reqAddr}
@@ -262,9 +263,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-3">
-              <label className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
+              <label htmlFor="loc-latlong" className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
               <div className="flex gap-2 mt-1">
                 <input
+                  id="loc-latlong"
                   className="input flex-1 text-[13px]"
                   placeholder="Auto-filled after Fetch or GPS"
                   value={reqLatLng}
@@ -282,8 +284,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-4">
-              <label className="text-[12px] text-[#555] font-medium">Note (optional)</label>
+              <label htmlFor="loc-note" className="text-[12px] text-[#555] font-medium">Note (optional)</label>
               <textarea
+                id="loc-note"
                 className="input text-[13px] resize-none mt-1"
                 rows={2}
                 placeholder="e.g. Moved to a new flat nearby"
@@ -315,7 +318,7 @@ export default function Dashboard() {
 function Row({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
     <div className="flex justify-between gap-3 text-[14px] py-[2px]">
-      <span className="text-[#777]">{label}</span>
+      <span className="text-[#595959]">{label}</span>
       <span className={`font-medium text-right ${valueClass ?? ''}`}>{value}</span>
     </div>
   );

@@ -12,7 +12,7 @@ import { statusInBucket, localToday, STATUS_BUCKETS } from "../lib/tripStatus";
 const PAGE_SIZE = 20;
 
 const STATUS_CARDS = [
-  { label: "Not Started Yet", color: "bg-[#F5F6FA] text-[#777777]" },
+  { label: "Not Started Yet", color: "bg-[#F5F6FA] text-[#595959]" },
   { label: "Driver Accepted", color: "bg-[#E8F5E9] text-[#18751C]" },
   { label: "Driver Rejected", color: "bg-[#FFEBEE] text-[#D22630]" },
   { label: "Trip Started", color: "bg-[#E3F2FD] text-[#0047B2]" },
@@ -187,7 +187,7 @@ export default function LiveTripMonitor() {
                 Live Employee Locations ({empLocations.length})
               </span>
             </div>
-            {showEmpLoc ? <ChevronUp className="w-4 h-4 text-[#777]" /> : <ChevronDown className="w-4 h-4 text-[#777]" />}
+            {showEmpLoc ? <ChevronUp className="w-4 h-4 text-[#595959]" /> : <ChevronDown className="w-4 h-4 text-[#595959]" />}
           </button>
           {showEmpLoc && (
             <div className="px-4 pb-3 flex flex-wrap gap-3">
@@ -227,7 +227,7 @@ export default function LiveTripMonitor() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4 text-[12px] text-[#777777]">
+        <div className="flex items-center gap-4 text-[12px] text-[#595959]">
           <div>
             <span className="text-[#848484]">Last refreshed :</span>{" "}
             <span>
@@ -253,8 +253,9 @@ export default function LiveTripMonitor() {
       <div className="dashboard-card p-4 mb-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">From Date</label>
+            <label htmlFor="live-from-date" className="text-[13px] text-[#595959]">From Date</label>
             <input
+              id="live-from-date"
               type="date"
               value={fromDate}
               onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
@@ -262,8 +263,9 @@ export default function LiveTripMonitor() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">To Date</label>
+            <label htmlFor="live-to-date" className="text-[13px] text-[#595959]">To Date</label>
             <input
+              id="live-to-date"
               type="date"
               value={toDate}
               onChange={(e) => { setToDate(e.target.value); setPage(1); }}
@@ -271,8 +273,9 @@ export default function LiveTripMonitor() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Shift Time</label>
+            <label htmlFor="live-shift-filter" className="text-[13px] text-[#595959]">Shift Time</label>
             <select
+              id="live-shift-filter"
               value={shiftTime}
               onChange={(e) => { setShiftTime(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -281,7 +284,7 @@ export default function LiveTripMonitor() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[13px] text-[#777777]">Trip Type</span>
+            <span className="text-[13px] text-[#595959]">Trip Type</span>
             <div className="flex gap-1">
               {["Pick", "Drop", "Both"].map((t) => (
                 <button
@@ -303,7 +306,7 @@ export default function LiveTripMonitor() {
               Clear Filter
             </button>
             <div className="flex items-center gap-2 border border-[#E0E4E9] rounded px-3 py-2">
-              <Search className="w-4 h-4 text-[#777777]" />
+              <Search className="w-4 h-4 text-[#595959]" />
               <input
                 type="text"
                 placeholder="Search"
@@ -326,16 +329,18 @@ export default function LiveTripMonitor() {
       {/* Status Counts */}
       <div className="grid grid-cols-5 gap-2 mb-4">
         {statusCounts.map((status) => (
-          <div
+          <button
             key={status.label}
+            type="button"
             onClick={() => toggleStatusCard(status.label)}
-            className={`dashboard-card p-3 cursor-pointer transition-shadow hover:shadow-md ${status.color} ${
+            aria-pressed={statusFilter === status.label}
+            className={`dashboard-card p-3 text-left w-full cursor-pointer transition-shadow hover:shadow-md ${status.color} ${
               statusFilter === status.label ? "ring-2 ring-[#0047B2]" : ""
             }`}
           >
             <div className="text-[11px] mb-1">{status.label}</div>
             <div className="text-[20px] font-semibold">{status.count}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -388,7 +393,7 @@ export default function LiveTripMonitor() {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={12} className="text-center py-8 text-[#777777]">No trips found</td></tr>
+              <tr><td colSpan={12} className="text-center py-8 text-[#595959]">No trips found</td></tr>
             ) : (
               paginated.map((trip) => (
                 <tr key={trip.id}>

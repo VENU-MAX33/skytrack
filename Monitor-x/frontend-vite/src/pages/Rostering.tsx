@@ -271,16 +271,16 @@ export default function Rostering() {
       <div className="dashboard-card p-4 mb-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">From</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]" />
+            <label htmlFor="roster-from" className="text-[13px] text-[#595959]">From</label>
+            <input id="roster-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]" />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">To</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]" />
+            <label htmlFor="roster-to" className="text-[13px] text-[#595959]">To</label>
+            <input id="roster-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]" />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Teams</label>
-            <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]">
+            <label htmlFor="roster-teams" className="text-[13px] text-[#595959]">Teams</label>
+            <select id="roster-teams" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]">
               {teams.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -289,7 +289,7 @@ export default function Rostering() {
           
           <div className="flex items-center gap-1 ml-4 border rounded border-[#E0E4E9] overflow-hidden">
             {(["login", "logout", "both"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-[13px] capitalize ${activeTab === tab ? "bg-[#0047B2] text-white" : "bg-white text-[#777777]"}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-[13px] capitalize ${activeTab === tab ? "bg-[#0047B2] text-white" : "bg-white text-[#595959]"}`}>{tab}</button>
             ))}
           </div>
         </div>
@@ -307,7 +307,7 @@ export default function Rostering() {
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#777777] absolute left-2 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#595959] absolute left-2 top-1/2 -translate-y-1/2" />
             <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="border border-[#E0E4E9] rounded pl-8 pr-3 py-1.5 text-[13px] w-64" />
           </div>
           <button className="text-[13px] border px-3 py-1.5 rounded flex items-center gap-1"><Download className="w-4 h-4"/> Import/Export</button>
@@ -408,7 +408,7 @@ export default function Rostering() {
           </button>
           <button className="w-full text-left px-4 py-2 hover:bg-[#F5F6FA]">Raise Adhoc</button>
           <div className="border-t border-[#E0E4E9] my-1"></div>
-          <div className="px-4 py-1 text-[#777777] font-medium text-[11px]">Remove Roster</div>
+          <div className="px-4 py-1 text-[#595959] font-medium text-[11px]">Remove Roster</div>
           <button className="w-full text-left px-4 py-2 hover:bg-[#F5F6FA]" onClick={() => { removeRoster(contextMenu.empId, contextMenu.date, "login"); setContextMenu(null); }}>Remove Login</button>
           <button className="w-full text-left px-4 py-2 hover:bg-[#F5F6FA]" onClick={() => { removeRoster(contextMenu.empId, contextMenu.date, "logout"); setContextMenu(null); }}>Remove Logout</button>
           <button className="w-full text-left px-4 py-2 hover:bg-[#F5F6FA]" onClick={() => { removeRoster(contextMenu.empId, contextMenu.date, "both"); setContextMenu(null); }}>Remove Both</button>
@@ -421,12 +421,12 @@ export default function Rostering() {
           <div className="bg-white rounded-lg shadow-xl w-[400px]">
             <div className="flex items-center justify-between p-4 border-b border-[#E0E4E9]">
               <h2 className="text-[16px] font-semibold text-[#222222]">Set Timing for {formatDateDisplay(timingModal.date)}</h2>
-              <button onClick={() => setTimingModal(null)} className="text-[#777777] hover:text-[#222222]"><X className="w-5 h-5"/></button>
+              <button onClick={() => setTimingModal(null)} className="text-[#595959] hover:text-[#222222]"><X className="w-5 h-5"/></button>
             </div>
             <div className="p-4 space-y-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[12px] font-medium text-[#777777]">Trip Type</label>
-                <select value={formTripType} onChange={(e) => setFormTripType(e.target.value as any)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]">
+                <label htmlFor="roster-form-triptype" className="text-[12px] font-medium text-[#595959]">Trip Type</label>
+                <select id="roster-form-triptype" value={formTripType} onChange={(e) => setFormTripType(e.target.value as any)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]">
                   <option value="both">Both (Login & Logout)</option>
                   <option value="pickup">Login (Pickup)</option>
                   <option value="drop">Logout (Drop)</option>
@@ -434,14 +434,14 @@ export default function Rostering() {
               </div>
               {(formTripType === "pickup" || formTripType === "both") && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-[12px] font-medium text-[#777777]">Login Time</label>
-                  <input type="time" value={formTiming} onChange={e => setFormTiming(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"/>
+                  <label htmlFor="roster-form-login" className="text-[12px] font-medium text-[#595959]">Login Time</label>
+                  <input id="roster-form-login" type="time" value={formTiming} onChange={e => setFormTiming(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"/>
                 </div>
               )}
               {(formTripType === "drop" || formTripType === "both") && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-[12px] font-medium text-[#777777]">Logout Time</label>
-                  <input type="time" value={formDropTiming} onChange={e => setFormDropTiming(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"/>
+                  <label htmlFor="roster-form-logout" className="text-[12px] font-medium text-[#595959]">Logout Time</label>
+                  <input id="roster-form-logout" type="time" value={formDropTiming} onChange={e => setFormDropTiming(e.target.value)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"/>
                 </div>
               )}
             </div>

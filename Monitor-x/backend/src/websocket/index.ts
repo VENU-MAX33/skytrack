@@ -70,8 +70,8 @@ export function emitTripStatus(payload: {
   i.to(rooms.admin).emit('trip:status', payload.trip);
 }
 
-/** Push an OTP notification to a specific employee (code present only in dev-mode). */
-export function emitOtpSent(employeeId: string, payload: { tripId: string; code: string | null }): void {
+/** Notify a specific employee that a pickup OTP was sent (the code goes by SMS only). */
+export function emitOtpSent(employeeId: string, payload: { tripId: string }): void {
   getIo().to(rooms.employee(employeeId)).emit('otp:sent', payload);
 }
 

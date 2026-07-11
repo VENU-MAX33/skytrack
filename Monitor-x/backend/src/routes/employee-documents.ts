@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Types } from 'mongoose';
+import { isValidObjectId } from 'mongoose';
 import { Employee } from '../models/Employee.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
 import { toEmployeeDocDTO } from '../mappers.js';
@@ -43,12 +43,23 @@ employeeDocumentsRouter.post(
   })
 );
 
+// Resolve a document that belongs to the employee named in the path, or 404.
+// Scoping by employeeId (not docId alone) stops one employee's id being used to
+// reach another's documents; an invalid docId is a 404, never a 500.
+async function loadOwnedDoc(empId: string, docId: string) {
+  if (!isValidObjectId(docId)) throw new HttpError(404, 'Document not found');
+  const emp = await Employee.findOne({ empId });
+  if (!emp) throw new HttpError(404, 'Employee not found');
+  const doc = await EmployeeDocument.findOne({ _id: docId, employeeId: emp._id });
+  if (!doc) throw new HttpError(404, 'Document not found');
+  return doc;
+}
+
 // GET /api/employees/:id/documents/:docId — fetch single doc with base64
 employeeDocumentsRouter.get(
   '/:id/documents/:docId',
   asyncHandler(async (req, res) => {
-    const doc = await EmployeeDocument.findById(new Types.ObjectId(req.params.docId));
-    if (!doc) throw new HttpError(404, 'Document not found');
+    const doc = await loadOwnedDoc(req.params.id, req.params.docId);
     res.json({ ...toEmployeeDocDTO(doc), base64: doc.base64 });
   })
 );
@@ -57,8 +68,8 @@ employeeDocumentsRouter.get(
 employeeDocumentsRouter.delete(
   '/:id/documents/:docId',
   asyncHandler(async (req, res) => {
-    const doc = await EmployeeDocument.findByIdAndDelete(new Types.ObjectId(req.params.docId));
-    if (!doc) throw new HttpError(404, 'Document not found');
+    const doc = await loadOwnedDoc(req.params.id, req.params.docId);
+    await doc.deleteOne();
     res.json({ ok: true });
   })
 );

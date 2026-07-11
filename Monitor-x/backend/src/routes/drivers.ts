@@ -6,6 +6,23 @@ import type { Driver as DriverDTO } from '../types/dto.js';
 
 export const driversRouter = Router();
 
+// Only these fields may be set through the API. Everything else the client sends
+// (notably passwordHash / passwordSetAt, which are managed by the driver's own
+// OTP/password flow) is ignored, so create/update cannot be used to inject them.
+const DRIVER_FIELDS = [
+  'name', 'gender', 'dlNumber', 'badgeNumber', 'contact', 'email', 'vendor',
+  'dlEffectiveFrom', 'dlExpiry', 'address', 'aadhaar', 'pan', 'inductionDate',
+  'firstVaccination', 'secondVaccination', 'pvcExpiry', 'medicalExpiry', 'active',
+] as const;
+
+function pickDriverFields(body: Partial<DriverDTO>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of DRIVER_FIELDS) {
+    if (body[key] !== undefined) out[key] = body[key];
+  }
+  return out;
+}
+
 // A mobile number can belong to only one driver (excludeName skips the record being edited).
 async function assertContactUnique(contact: string | undefined, excludeName?: string): Promise<void> {
   const c = contact?.trim();
@@ -44,7 +61,7 @@ driversRouter.post(
     const exists = await Driver.findOne({ dlNumber: body.dlNumber });
     if (exists) throw new HttpError(409, `Driver with DL ${body.dlNumber} already exists`);
     await assertContactUnique(body.contact);
-    const doc = await Driver.create(body);
+    const doc = await Driver.create(pickDriverFields(body));
     res.status(201).json(toDriverDTO(doc));
   })
 );
@@ -77,7 +94,7 @@ driversRouter.post(
         }
       }
       try {
-        await Driver.create(d);
+        await Driver.create(pickDriverFields(d));
         created++;
       } catch (err) {
         errors.push({ row: i + 1, reason: (err as Error).message });
@@ -106,7 +123,7 @@ driversRouter.put(
   asyncHandler(async (req, res) => {
     const body = req.body as Partial<DriverDTO>;
     await assertContactUnique(body.contact, req.params.name);
-    const doc = await Driver.findOneAndUpdate({ name: req.params.name }, body, {
+    const doc = await Driver.findOneAndUpdate({ name: req.params.name }, pickDriverFields(body), {
       new: true,
     });
     if (!doc) throw new HttpError(404, 'Driver not found');

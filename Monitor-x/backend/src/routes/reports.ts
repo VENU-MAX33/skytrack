@@ -230,8 +230,12 @@ const REPORT_TYPES: Record<string, ReportTypeDef> = {
 // CSV
 // ---------------------------------------------------------------------------
 
-function csvEscape(value: unknown): string {
-  const s = String(value ?? '');
+export function csvEscape(value: unknown): string {
+  let s = String(value ?? '');
+  // Neutralise spreadsheet formula injection: a cell starting with = + - @ (or a
+  // leading tab/CR that Excel trims) is evaluated as a formula. Employee-supplied
+  // text (SOS reasons, address notes) flows into these exports, so prefix a quote.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

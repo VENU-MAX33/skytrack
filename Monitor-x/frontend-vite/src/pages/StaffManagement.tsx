@@ -78,7 +78,7 @@ export default function StaffManagement() {
         </button>
       </div>
 
-      <div className="dashboard-card p-4 mb-4 text-[12px] text-[#777777]">
+      <div className="dashboard-card p-4 mb-4 text-[12px] text-[#595959]">
         Staff logins get limited access: Employee, Driver, Vehicle, Master Routing, Rostering and Trip
         Management — but not Route Management, Reports, or deleting a locked trip. Only the main admin
         can create or remove staff logins.
@@ -98,9 +98,9 @@ export default function StaffManagement() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={3} className="text-[12px] text-[#777777] px-3 py-4 text-center">Loading…</td></tr>
+              <tr><td colSpan={3} className="text-[12px] text-[#595959] px-3 py-4 text-center">Loading…</td></tr>
             ) : staff.length === 0 ? (
-              <tr><td colSpan={3} className="text-[12px] text-[#777777] px-3 py-4 text-center">No staff logins yet</td></tr>
+              <tr><td colSpan={3} className="text-[12px] text-[#595959] px-3 py-4 text-center">No staff logins yet</td></tr>
             ) : (
               staff.map((s) => (
                 <tr key={s.id} className="hover:bg-[#F5F6FA]">
@@ -131,7 +131,7 @@ export default function StaffManagement() {
               <button
                 type="button"
                 onClick={() => { setShowModal(false); setForm(EMPTY); }}
-                className="text-[#777777] hover:text-[#222222]"
+                className="text-[#595959] hover:text-[#222222]"
               >
                 <X className="w-5 h-5" />
               </button>

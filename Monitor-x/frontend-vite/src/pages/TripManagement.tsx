@@ -329,8 +329,9 @@ export default function TripManagement() {
       <div className="dashboard-card p-4 mb-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Date</label>
+            <label htmlFor="trip-date-filter" className="text-[13px] text-[#595959]">Date</label>
             <input
+              id="trip-date-filter"
               type="date"
               value={date}
               onChange={(e) => { setDate(e.target.value); setPage(1); }}
@@ -338,7 +339,7 @@ export default function TripManagement() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[13px] text-[#777777]">Pick/Drop</span>
+            <span className="text-[13px] text-[#595959]">Pick/Drop</span>
             <div className="flex rounded border border-[#E0E4E9] overflow-hidden">
               <button
                 onClick={() => { setTripType("pick"); setPage(1); }}
@@ -355,8 +356,9 @@ export default function TripManagement() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Shift Time</label>
+            <label htmlFor="trip-shift-filter" className="text-[13px] text-[#595959]">Shift Time</label>
             <select
+              id="trip-shift-filter"
               value={shiftTime}
               onChange={(e) => { setShiftTime(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -365,8 +367,9 @@ export default function TripManagement() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Vendor</label>
+            <label htmlFor="trip-vendor-filter" className="text-[13px] text-[#595959]">Vendor</label>
             <select
+              id="trip-vendor-filter"
               value={vendor}
               onChange={(e) => { setVendor(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -381,25 +384,25 @@ export default function TripManagement() {
       {/* Stats */}
       <div className="grid grid-cols-5 gap-4 mb-4">
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">New Rostered Emp</div>
+          <div className="text-[12px] text-[#595959] mb-1">New Rostered Emp</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{stats.newRostered}</div>
           <div className="text-[11px] text-[#848484]">Pending approval</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Routed Emp</div>
+          <div className="text-[12px] text-[#595959] mb-1">Routed Emp</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{stats.routed}</div>
           <div className="text-[11px] text-[#848484]">Assigned a route</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Trips</div>
+          <div className="text-[12px] text-[#595959] mb-1">Trips</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{stats.trips}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Vehicles</div>
+          <div className="text-[12px] text-[#595959] mb-1">Vehicles</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{stats.vehicles}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Escorts</div>
+          <div className="text-[12px] text-[#595959] mb-1">Escorts</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{stats.escorts}</div>
         </div>
       </div>
@@ -412,13 +415,13 @@ export default function TripManagement() {
         <div className="flex items-center gap-1 bg-white rounded border border-[#E0E4E9] p-1">
           <button
             onClick={() => setViewMode("list")}
-            className={`p-2 rounded ${viewMode === "list" ? "bg-[#0047B2] text-white" : "text-[#777777]"}`}
+            className={`p-2 rounded ${viewMode === "list" ? "bg-[#0047B2] text-white" : "text-[#595959]"}`}
           >
             <List className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("grid")}
-            className={`p-2 rounded ${viewMode === "grid" ? "bg-[#0047B2] text-white" : "text-[#777777]"}`}
+            className={`p-2 rounded ${viewMode === "grid" ? "bg-[#0047B2] text-white" : "text-[#595959]"}`}
           >
             <Grid3X3 className="w-4 h-4" />
           </button>
@@ -429,7 +432,7 @@ export default function TripManagement() {
       {trips.length === 0 && readyGroups.length === 0 ? (
         <div className="dashboard-card p-8 text-center">
           <Bus className="w-12 h-12 text-[#E0E4E9] mx-auto mb-3" />
-          <p className="text-[14px] text-[#777777]">
+          <p className="text-[14px] text-[#595959]">
             {loading ? "Loading…" : "No Trips Found — save timings in Rostering and they will appear here"}
           </p>
         </div>
@@ -457,7 +460,7 @@ export default function TripManagement() {
               {readyGroups.map((g) => (
                 <tr key={`pending-${g.key}`} className="bg-[#FFFBEB]">
                   <td className="font-medium text-[#B7791F]">NEW</td>
-                  <td className="text-[#777777]">Not Started Yet</td>
+                  <td className="text-[#595959]">Not Started Yet</td>
                   <td>{tripType === "pick" ? "PickUp" : "Drop"}</td>
                   <td>{date}</td>
                   <td>{g.time || "-"}</td>
@@ -494,7 +497,7 @@ export default function TripManagement() {
                     onClick={() => setExpandedTripId(expandedTripId === trip.id ? null : trip.id)}
                   >
                     <td className="font-medium flex items-center gap-2">
-                      {expandedTripId === trip.id ? <ChevronUp className="w-4 h-4 text-[#777777]" /> : <ChevronDown className="w-4 h-4 text-[#777777]" />}
+                      {expandedTripId === trip.id ? <ChevronUp className="w-4 h-4 text-[#595959]" /> : <ChevronDown className="w-4 h-4 text-[#595959]" />}
                       {trip.id}
                     </td>
                     <td className={trip.statusColor}>{trip.status}</td>
@@ -532,7 +535,7 @@ export default function TripManagement() {
                       <div className="flex gap-2 items-center">
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/live_trip_monitor?search=${encodeURIComponent(trip.id)}`); }}
-                          className="text-[#777777] hover:bg-[#E8F4FD] p-1 rounded transition-colors"
+                          className="text-[#595959] hover:bg-[#E8F4FD] p-1 rounded transition-colors"
                           title="View Live Trip Monitor"
                         >
                           <ExternalLink className="w-4 h-4" />
@@ -577,23 +580,23 @@ export default function TripManagement() {
                                 <div key={emp.id} className="bg-white p-3 rounded shadow-sm border border-[#E0E4E9] flex justify-between items-start">
                                   <div>
                                     <div className="text-[13px] font-medium text-[#222222] flex items-center gap-1">
-                                      {emp.name} <span className="text-[#777777] font-normal text-[11px]">({emp.id})</span>
+                                      {emp.name} <span className="text-[#595959] font-normal text-[11px]">({emp.id})</span>
                                       {trip.verifiedEmployeeIds?.includes(emp.id) && (
                                         <span className="text-[10px] font-semibold text-[#18751C] bg-[#E9FDEA] px-1.5 py-[1px] rounded">✓ Verified</span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-[#777777] mt-1">Gender: {emp.gender}</div>
-                                    <div className="text-[11px] text-[#777777] mt-1">Route: {emp.route || '-'}</div>
-                                    <div className="text-[11px] text-[#777777] mt-1">Location: {emp.location || emp.nodalPoint}</div>
+                                    <div className="text-[11px] text-[#595959] mt-1">Gender: {emp.gender}</div>
+                                    <div className="text-[11px] text-[#595959] mt-1">Route: {emp.route || '-'}</div>
+                                    <div className="text-[11px] text-[#595959] mt-1">Location: {emp.location || emp.nodalPoint}</div>
                                   </div>
-                                  <div className="text-[11px] text-[#777777] text-right">
+                                  <div className="text-[11px] text-[#595959] text-right">
                                     Contact:<br/><span className="text-[#222222]">{emp.contact}</span>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="text-[13px] text-[#777777]">No employees found for this trip.</div>
+                            <div className="text-[13px] text-[#595959]">No employees found for this trip.</div>
                           )}
                         </div>
                       </td>
@@ -645,7 +648,7 @@ export default function TripManagement() {
                   <span className={`text-[12px] ${trip.statusColor}`}>{trip.status}</span>
                 </div>
               </div>
-              <div className="text-[12px] text-[#777777] space-y-1">
+              <div className="text-[12px] text-[#595959] space-y-1">
                 <div>{trip.type} • {trip.shiftTime} • {trip.empCount} employees</div>
                 <div>{trip.location}</div>
                 {trip.frozen ? (
@@ -684,7 +687,7 @@ export default function TripManagement() {
                 <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
                 <span className="text-[14px] font-semibold text-[#222]">Import Trips — {importRows.length} row{importRows.length !== 1 ? 's' : ''} found</span>
               </div>
-              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#777] hover:text-[#222]">
+              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#595959] hover:text-[#222]">
                 <X className="w-4 h-4" />
               </button>
             </div>
