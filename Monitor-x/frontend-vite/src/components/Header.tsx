@@ -56,15 +56,27 @@ export default function Header() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadCompany = useCallback(() => {
     getCompanyConfig()
       .then((cfg) => {
-        if (cfg.name) setCompanyName(cfg.name);
+        setCompanyName(cfg.name || "MonitorX");
         setCompanyLogo(cfg.logoBase64 || "");
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadCompany();
     load();
-  }, [load]);
+  }, [load, loadCompany]);
+
+  // The header is mounted once by Layout and persists across navigation, so it
+  // must re-fetch when the company name/logo is changed on the Route Management
+  // screen (which dispatches this event after a successful save).
+  useEffect(() => {
+    window.addEventListener("company:updated", loadCompany);
+    return () => window.removeEventListener("company:updated", loadCompany);
+  }, [loadCompany]);
 
   // Live: prepend incoming notifications and bump the unread badge
   useEffect(() => {
@@ -123,7 +135,11 @@ export default function Header() {
       {/* Logo Area */}
       <div className="w-[230px] h-[51px] flex items-center justify-start px-4 border-r border-[#E0E4E9] overflow-hidden">
         <a href="/" className="flex items-center">
-          <img src="/monitorx-logo.png" alt="MonitorX" className="h-[40px] w-auto rounded-md" />
+          <img
+            src={companyLogo || "/monitorx-logo.png"}
+            alt={companyName}
+            className="h-[40px] w-auto rounded-md object-contain"
+          />
         </a>
       </div>
 

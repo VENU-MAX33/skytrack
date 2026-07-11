@@ -133,6 +133,8 @@ export default function RouteManagement() {
       });
       setCompany(updated);
       setCompanySet(true);
+      // Tell the (persistently-mounted) header to re-fetch the name/logo.
+      window.dispatchEvent(new Event("company:updated"));
       toast.success("Company location saved");
     } catch (err) {
       toast.error(`Could not save company config: ${(err as Error).message}`);
