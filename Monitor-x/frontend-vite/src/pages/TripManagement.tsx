@@ -1,14 +1,15 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Bus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet, Trash2 } from "lucide-react";
-import { getTrips, getRosters, getVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle } from "../api";
+import { getTrips, getRosters, getVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle, updateTripEscort } from "../api";
 import type { Trip, RosterEntry, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { localToday } from "../lib/tripStatus";
-import { exportToExcel, parseExcel, downloadTemplate } from "../lib/excel";
+import { exportToExcel, parseExcel } from "../lib/excel";
+import { useVendors } from "../hooks/useVendors";
 
 const PAGE_SIZE = 10;
 
@@ -92,10 +93,10 @@ export default function TripManagement() {
     setSearchParams(params, { replace: true });
   }, [date, tripType, vendor, setSearchParams]);
 
-  const vendors = useMemo(
-    () => Array.from(new Set(vehicles.map((v) => v.vendor).filter(Boolean))).sort(),
-    [vehicles]
-  );
+  // Vendor filter options come from the admin-managed list (Route Management),
+  // the same source the rest of the app uses — not from whatever vendor happens
+  // to be stamped on existing vehicles.
+  const vendors = useVendors();
 
   // Shift-time options come from what was actually entered in Rostering (plus
   // existing trips), so any specific time the admin set appears here.
@@ -169,6 +170,20 @@ export default function TripManagement() {
   }
 
   const [changingVehicle, setChangingVehicle] = useState<string | null>(null);
+  const [savingEscort, setSavingEscort] = useState<string | null>(null);
+
+  async function handleEscortChange(tripId: string, escort: 'Yes' | 'No', escortName: string) {
+    setSavingEscort(tripId);
+    try {
+      await updateTripEscort(tripId, escort, escortName);
+      toast.success(`Trip ${tripId} escort updated`);
+      load();
+    } catch (err) {
+      toast.error(`Could not update escort: ${(err as Error).message}`);
+    } finally {
+      setSavingEscort(null);
+    }
+  }
 
   async function handleChangeVehicle(tripId: string, vehicleNo: string) {
     if (!vehicleNo) return;
@@ -291,16 +306,6 @@ export default function TripManagement() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-[#0047B2] text-white px-3 py-1 rounded text-[12px]">Cab</button>
-          {/* Excel: download template */}
-          <button
-            onClick={() => downloadTemplate('trips_template.xlsx', ['Employee IDs', 'Vehicle No', 'Route Name', 'Date', 'Shift Time', 'Type'])}
-            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
-            title="Download Excel template"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
-            Template
-          </button>
           {/* Excel: export current trips */}
           <button
             onClick={handleExportExcel}
@@ -505,7 +510,37 @@ export default function TripManagement() {
                     <td>{trip.date}</td>
                     <td>{trip.shiftTime}</td>
                     <td>{trip.empCount}</td>
-                    <td>{trip.escort}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {trip.frozen ? (
+                        <span>{trip.escort}{trip.escort === 'Yes' && trip.escortName ? ` · ${trip.escortName}` : ''}</span>
+                      ) : (
+                        <div className="flex flex-col gap-1 min-w-[140px]">
+                          <select
+                            value={trip.escort === 'Yes' ? 'Yes' : 'No'}
+                            disabled={savingEscort === trip.id}
+                            onChange={(e) => handleEscortChange(trip.id, e.target.value as 'Yes' | 'No', e.target.value === 'Yes' ? (trip.escortName ?? '') : '')}
+                            className="border border-[#E0E4E9] bg-white rounded px-2 py-1 text-[12px]"
+                            title="Set whether this trip has an escort"
+                          >
+                            <option value="No">No escort</option>
+                            <option value="Yes">Escort: Yes</option>
+                          </select>
+                          {trip.escort === 'Yes' && (
+                            <input
+                              type="text"
+                              defaultValue={trip.escortName ?? ''}
+                              disabled={savingEscort === trip.id}
+                              onBlur={(e) => {
+                                const name = e.target.value.trim();
+                                if (name !== (trip.escortName ?? '')) handleEscortChange(trip.id, 'Yes', name);
+                              }}
+                              placeholder="Escort name (optional)"
+                              className="border border-[#E0E4E9] bg-white rounded px-2 py-1 text-[12px]"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td>{trip.route || '-'}</td>
                     <td>{trip.location}</td>
                     <td>{trip.vendor}</td>
@@ -651,6 +686,9 @@ export default function TripManagement() {
               <div className="text-[12px] text-[#595959] space-y-1">
                 <div>{trip.type} • {trip.shiftTime} • {trip.empCount} employees</div>
                 <div>{trip.location}</div>
+                {trip.escort === 'Yes' && (
+                  <div>Escort: Yes{trip.escortName ? ` · ${trip.escortName}` : ''}</div>
+                )}
                 {trip.frozen ? (
                   <div>{trip.vehicleNo} ({trip.vendor})</div>
                 ) : (
