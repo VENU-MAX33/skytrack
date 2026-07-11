@@ -60,7 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <span className="text-[13px] text-[#222222] flex-1">{toast.message}</span>
             <button
               onClick={() => dismiss(toast.id)}
-              className="text-[#777777] hover:text-[#222222]"
+              className="text-[#595959] hover:text-[#222222]"
               aria-label="Dismiss"
             >
               <X size={14} />

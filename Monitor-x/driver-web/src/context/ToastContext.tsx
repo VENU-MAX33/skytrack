@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <span className="mt-[1px]">{STYLES[toast.type].icon}</span>
             <span className="text-[13px] text-[#222222] flex-1">{toast.message}</span>
-            <button onClick={() => dismiss(toast.id)} className="text-[#777777]" aria-label="Dismiss">
+            <button onClick={() => dismiss(toast.id)} className="text-[#595959]" aria-label="Dismiss">
               <X size={14} />
             </button>
           </div>

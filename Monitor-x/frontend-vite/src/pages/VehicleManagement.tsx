@@ -130,19 +130,19 @@ export default function VehicleManagement() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-4">
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Expired</div>
+          <div className="text-[12px] text-[#595959] mb-1">Expired</div>
           <div className="text-[24px] font-semibold text-[#D22630]">{expired}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Uploaded</div>
+          <div className="text-[12px] text-[#595959] mb-1">Uploaded</div>
           <div className="text-[24px] font-semibold text-[#18751C]">0</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Not Uploaded</div>
+          <div className="text-[12px] text-[#595959] mb-1">Not Uploaded</div>
           <div className="text-[24px] font-semibold text-[#E65100]">{vehicles.length}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Active</div>
+          <div className="text-[12px] text-[#595959] mb-1">Active</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{active}</div>
         </div>
       </div>
@@ -151,8 +151,9 @@ export default function VehicleManagement() {
       <div className="dashboard-card p-4 mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Vendor</label>
+            <label htmlFor="veh-vendor-filter" className="text-[13px] text-[#595959]">Vendor</label>
             <select
+              id="veh-vendor-filter"
               value={vendorFilter}
               onChange={(e) => { setVendorFilter(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -161,8 +162,9 @@ export default function VehicleManagement() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Vehicle Type</label>
+            <label htmlFor="veh-type-filter" className="text-[13px] text-[#595959]">Vehicle Type</label>
             <select
+              id="veh-type-filter"
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -173,7 +175,7 @@ export default function VehicleManagement() {
             </select>
           </div>
           <div className="flex items-center gap-2 flex-1 ml-4">
-            <Search className="w-4 h-4 text-[#777777]" />
+            <Search className="w-4 h-4 text-[#595959]" />
             <input
               type="text"
               value={search}
@@ -222,7 +224,7 @@ export default function VehicleManagement() {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={21} className="text-center py-8 text-[#777777]">No vehicles found</td></tr>
+              <tr><td colSpan={21} className="text-center py-8 text-[#595959]">No vehicles found</td></tr>
             ) : (
               paginated.map((vehicle) => (
                 <tr key={vehicle.rtoNo} className={selected.has(vehicle.rtoNo) ? "bg-[#FFF5F5]" : ""}>

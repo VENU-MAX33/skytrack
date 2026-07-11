@@ -35,7 +35,7 @@ export default function Login() {
             <span className="text-white text-xl font-bold">M</span>
           </div>
           <h1 className="text-[20px] font-semibold text-[#222222]">MonitorX</h1>
-          <p className="text-[13px] text-[#777777] mt-1">Transport Management System</p>
+          <p className="text-[13px] text-[#595959] mt-1">Transport Management System</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

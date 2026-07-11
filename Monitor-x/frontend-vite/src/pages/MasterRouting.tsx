@@ -223,12 +223,12 @@ export default function MasterRouting() {
           >
             Cab
           </button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><MapPin className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><Minimize2 className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><Trash2 className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><FileText className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><Download className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#777777]"><Upload className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><MapPin className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Minimize2 className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Trash2 className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><FileText className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Download className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Upload className="w-4 h-4" /></button>
           <button className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors">
             Auto Generate
           </button>
@@ -352,7 +352,7 @@ export default function MasterRouting() {
                 style={{ backgroundColor: routeColor(selectedRoute.id) }}
               />
               <span className="text-[14px] font-semibold text-[#222222] truncate">{selectedRoute.name}</span>
-              <span className="text-[11px] text-[#777] ml-auto">{routeEmployees.length} emp</span>
+              <span className="text-[11px] text-[#595959] ml-auto">{routeEmployees.length} emp</span>
             </div>
 
             <div className="p-2 border-b border-[#E0E4E9] bg-[#F9F9F9] flex items-center gap-2">
@@ -365,7 +365,7 @@ export default function MasterRouting() {
                   else setSelectedEmployees(new Set());
                 }}
               />
-              <span className="text-[11px] text-[#777777] font-semibold tracking-wider">EMPLOYEES</span>
+              <span className="text-[11px] text-[#595959] font-semibold tracking-wider">EMPLOYEES</span>
             </div>
 
             <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: 540 }}>
@@ -407,7 +407,7 @@ export default function MasterRouting() {
                         <div className={`text-[11px] ${isMale ? "text-[#0047B2]" : "text-[#E83E8C]"}`}>
                           {emp.gender}
                         </div>
-                        <div className="text-[11px] text-[#777] mt-0.5">
+                        <div className="text-[11px] text-[#595959] mt-0.5">
                           {emp.nodalPoint || emp.location || "—"}
                         </div>
                         {emp.pinCode && (
@@ -590,7 +590,7 @@ export default function MasterRouting() {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[998]">
               <div className="bg-white/90 rounded-lg px-6 py-4 text-center shadow">
                 <div className="text-[14px] font-semibold text-[#222] mb-1">No routes configured</div>
-                <div className="text-[12px] text-[#777]">Create routes to see them on the map</div>
+                <div className="text-[12px] text-[#595959]">Create routes to see them on the map</div>
               </div>
             </div>
           )}

@@ -71,7 +71,7 @@ export default function DataTable({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="text-[12px] text-[#777777] px-3 py-4 text-center"
+                  className="text-[12px] text-[#595959] px-3 py-4 text-center"
                 >
                   No records
                 </td>

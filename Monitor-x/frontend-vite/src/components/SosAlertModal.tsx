@@ -56,7 +56,7 @@ export default function SosAlertModal() {
           {alert.tripId && <Row label="Trip" value={alert.tripId} />}
           {alert.reason && (
             <div className="flex justify-between gap-3">
-              <span className="text-[#777777]">Reason</span>
+              <span className="text-[#595959]">Reason</span>
               <span className="font-semibold text-right text-[#D22630]">{alert.reason}</span>
             </div>
           )}
@@ -73,7 +73,7 @@ export default function SosAlertModal() {
               {showPhoto && (
                 <img
                   src={alert.photoBase64}
-                  alt="SOS photo"
+                  alt="Attached by the employee raising the SOS"
                   className="mt-2 w-full rounded-lg max-h-[200px] object-cover border border-[#eee]"
                 />
               )}
@@ -116,7 +116,7 @@ export default function SosAlertModal() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-[#777777]">{label}</span>
+      <span className="text-[#595959]">{label}</span>
       <span className="font-medium text-right text-[#222222]">{value}</span>
     </div>
   );

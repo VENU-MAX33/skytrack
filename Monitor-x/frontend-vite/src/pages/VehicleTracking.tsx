@@ -190,7 +190,7 @@ export default function VehicleTracking() {
                   <span className={`w-3 h-3 rounded-full ${filter.color}`}></span>
                   <span className="text-[13px] text-[#222222]">{filter.label}</span>
                 </div>
-                <span className={`text-[13px] font-semibold ${filter.id === "all" ? "text-[#0047B2]" : "text-[#777777]"}`}>
+                <span className={`text-[13px] font-semibold ${filter.id === "all" ? "text-[#0047B2]" : "text-[#595959]"}`}>
                   {filter.count}
                 </span>
               </button>
@@ -202,7 +202,7 @@ export default function VehicleTracking() {
         <div className="absolute top-4 right-16 w-[200px] bg-white rounded-lg shadow-md max-h-[calc(100vh-100px)] overflow-hidden flex flex-col z-[1000]">
           <div className="p-3 border-b border-[#E0E4E9]">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#777777]" />
+              <Search className="w-4 h-4 text-[#595959]" />
               <input
                 type="text"
                 placeholder="search"
@@ -251,27 +251,27 @@ export default function VehicleTracking() {
                 />
                 <div>
                   <p className="text-[14px] font-semibold text-[#222222]">{selectedVehicle.rtoNo}</p>
-                  <p className="text-[12px] text-[#777777]">Last updated: just now</p>
+                  <p className="text-[12px] text-[#595959]">Last updated: just now</p>
                 </div>
               </div>
               <div className="flex items-center gap-4 text-[13px]">
                 <div>
-                  <span className="text-[#777777]">Speed: </span>
+                  <span className="text-[#595959]">Speed: </span>
                   <span className="text-[#222222]">{selectedVehicle.speed} km/h</span>
                 </div>
                 <div>
-                  <span className="text-[#777777]">Status: </span>
+                  <span className="text-[#595959]">Status: </span>
                   <span className="capitalize" style={{ color: STATUS_COLORS[selectedVehicle.status] }}>
                     {selectedVehicle.status}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[#777777]">Lat/Lng: </span>
+                  <span className="text-[#595959]">Lat/Lng: </span>
                   <span className="text-[#222222]">{selectedVehicle.lat.toFixed(4)}, {selectedVehicle.lng.toFixed(4)}</span>
                 </div>
                 <button
                   onClick={() => setSelectedVehicle(null)}
-                  className="text-[#777777] hover:text-[#D22630] text-lg leading-none"
+                  className="text-[#595959] hover:text-[#D22630] text-lg leading-none"
                 >
                   ×
                 </button>

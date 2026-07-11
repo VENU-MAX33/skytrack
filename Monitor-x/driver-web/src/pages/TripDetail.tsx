@@ -162,7 +162,7 @@ export default function TripDetail() {
     return `${diff} min ago`;
   }
 
-  if (!trip) return <div className="app-shell p-6 text-[#777]">Loading…</div>;
+  if (!trip) return <div className="app-shell p-6 text-[#595959]">Loading…</div>;
 
   const allVerified = trip.employees.every((e) => e.verified);
   const isOngoing = ONGOING.includes(trip.status);
@@ -260,7 +260,7 @@ export default function TripDetail() {
             >
               <ExternalLink size={13} /> Map
             </a>
-            <button onClick={() => setEmpLoc(null)} className="text-[#777]">
+            <button onClick={() => setEmpLoc(null)} className="text-[#595959]">
               <X size={16} />
             </button>
           </div>
@@ -309,7 +309,7 @@ export default function TripDetail() {
                 </Marker>
               )}
             </MapContainer>
-            <div className="flex gap-4 px-3 py-2 text-[11px] text-[#777] border-t border-[#eee]">
+            <div className="flex gap-4 px-3 py-2 text-[11px] text-[#595959] border-t border-[#eee]">
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#6a5ca1' }} /> Pickup point
               </span>
@@ -346,10 +346,10 @@ export default function TripDetail() {
                       <span className="text-[10px] font-bold text-white bg-[#6a5ca1] px-1.5 py-0.5 rounded">NEXT</span>
                     )}
                   </div>
-                  <div className="text-[12px] text-[#777]">
+                  <div className="text-[12px] text-[#595959]">
                     {emp.id} · {emp.shiftLogin || '—'}
                   </div>
-                  <div className="text-[12px] text-[#777]">{emp.location || emp.nodalPoint}</div>
+                  <div className="text-[12px] text-[#595959]">{emp.location || emp.nodalPoint}</div>
                 </div>
                 <div className="flex gap-2">
                   {emp.contact && (

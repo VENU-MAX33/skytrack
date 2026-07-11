@@ -26,7 +26,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-[#F5F6FA] flex items-center justify-center p-4">
           <div className="dashboard-card p-6 max-w-[420px] text-center">
             <h2 className="text-[16px] font-semibold text-[#222222] mb-2">Something went wrong</h2>
-            <p className="text-[13px] text-[#777777] mb-4">{this.state.error.message}</p>
+            <p className="text-[13px] text-[#595959] mb-4">{this.state.error.message}</p>
             <button
               onClick={() => window.location.reload()}
               className="bg-[#0047B2] text-white text-[13px] px-4 py-2 rounded hover:bg-[#003a91]"

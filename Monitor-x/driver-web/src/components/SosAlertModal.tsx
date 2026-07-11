@@ -53,7 +53,7 @@ export default function SosAlertModal({ alert, onClose }: Props) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-[#777]">{label}</span>
+      <span className="text-[#595959]">{label}</span>
       <span className="font-medium text-right">{value}</span>
     </div>
   );

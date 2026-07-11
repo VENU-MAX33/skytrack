@@ -35,7 +35,7 @@ export default function StatCard({ title, stats, className = "" }: StatCardProps
           >
             <div className="flex items-center gap-1.5 mb-1">
               <StatIcon label={stat.label} size={12} />
-              <span className="text-[12px] text-[#777777]">{stat.label}</span>
+              <span className="text-[12px] text-[#595959]">{stat.label}</span>
             </div>
             <div className="text-[20px] font-semibold text-[#0047B2]">{stat.value}</div>
             {stat.subLabel && (

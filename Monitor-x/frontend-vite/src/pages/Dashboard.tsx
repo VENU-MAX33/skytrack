@@ -187,7 +187,7 @@ function SosPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-[#777] border-b border-[#eee]">
+              <tr className="text-[#595959] border-b border-[#eee]">
                 <th className="text-left py-2 pr-3 font-medium">Time</th>
                 <th className="text-left py-2 pr-3 font-medium">Employee</th>
                 <th className="text-left py-2 pr-3 font-medium">Reason</th>
@@ -199,7 +199,7 @@ function SosPanel() {
             <tbody>
               {filtered.map((a) => (
                 <tr key={a.id} className="border-b border-[#f5f5f5] hover:bg-[#fafafa]">
-                  <td className="py-2 pr-3 whitespace-nowrap text-[#777]">
+                  <td className="py-2 pr-3 whitespace-nowrap text-[#595959]">
                     {new Date(a.createdAt).toLocaleTimeString("en-GB", {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -211,7 +211,7 @@ function SosPanel() {
                   </td>
                   <td className="py-2 pr-3">
                     <div className="font-medium text-[#222]">{a.employee.name}</div>
-                    <div className="text-[#777]">{a.employee.contact}</div>
+                    <div className="text-[#595959]">{a.employee.contact}</div>
                   </td>
                   <td className="py-2 pr-3 max-w-[160px]">
                     <span className="text-[#D22630] font-medium">
@@ -399,7 +399,7 @@ function EmployeeLocationPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-[#777] border-b border-[#eee]">
+              <tr className="text-[#595959] border-b border-[#eee]">
                 <th className="text-left py-2 pr-3 font-medium">Time</th>
                 <th className="text-left py-2 pr-3 font-medium">Employee</th>
                 <th className="text-left py-2 pr-3 font-medium">Trip ID</th>
@@ -415,7 +415,7 @@ function EmployeeLocationPanel() {
                 const fresh = age <= 5 * 60_000;
                 return (
                   <tr key={u.empId} className="border-b border-[#f5f5f5] hover:bg-[#fafafa]">
-                    <td className="py-2 pr-3 whitespace-nowrap text-[#777]">
+                    <td className="py-2 pr-3 whitespace-nowrap text-[#595959]">
                       {relativeAge(age)}
                       <br />
                       <span className="text-[11px]">
@@ -427,7 +427,7 @@ function EmployeeLocationPanel() {
                     </td>
                     <td className="py-2 pr-3">
                       <div className="font-medium text-[#222]">{u.empName}</div>
-                      <div className="text-[#777]">{u.empId}</div>
+                      <div className="text-[#595959]">{u.empId}</div>
                     </td>
                     <td className="py-2 pr-3 text-[#555]">{u.tripId}</td>
                     <td className="py-2 pr-3 font-mono text-[#555] whitespace-nowrap">
@@ -524,7 +524,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!stats) return <div className="p-4 text-[13px] text-[#777777]">Loading…</div>;
+  if (!stats) return <div className="p-4 text-[13px] text-[#595959]">Loading…</div>;
 
   const formattedRefresh = lastRefreshed.toLocaleString("en-GB", {
     day: "2-digit", month: "numeric", year: "numeric",
@@ -540,7 +540,7 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-[18px] font-semibold text-[#222222]">Dashboard</h1>
-        <div className="flex items-center gap-4 text-[12px] text-[#777777]">
+        <div className="flex items-center gap-4 text-[12px] text-[#595959]">
           <div>
             <span className="text-[#848484]">Last refreshed :</span>{" "}
             <span>{formattedRefresh}</span>
@@ -621,9 +621,9 @@ export default function Dashboard() {
             <div className="border-b border-[#E0E4E9] pb-2">
               <div className="text-[13px] font-medium text-[#222222] mb-1">Rostering</div>
               <div className="flex justify-between text-[12px]">
-                <span className="text-[#777777]">Ad-hoc</span>
+                <span className="text-[#595959]">Ad-hoc</span>
                 <div className="flex gap-3">
-                  <Link to="/rostering?status=pending" className="text-[#777777] hover:underline">
+                  <Link to="/rostering?status=pending" className="text-[#595959] hover:underline">
                     Pending - {stats.approval.rostering.pending}
                   </Link>
                   <Link to="/rostering?status=approved" className="text-[#0047B2] hover:underline">
@@ -635,7 +635,7 @@ export default function Dashboard() {
             <div className="border-b border-[#E0E4E9] pb-2">
               <div className="text-[13px] font-medium text-[#222222] mb-1">Employee Address Change</div>
               <div className="flex justify-between text-[12px]">
-                <span className="text-[#777777]">Employee</span>
+                <span className="text-[#595959]">Employee</span>
                 <div className="flex gap-3">
                   <Link to="/employee-management" className="text-[#FB6767] hover:underline">
                     Pending - {stats.approval.employeeAddressChange.pending}
@@ -649,9 +649,9 @@ export default function Dashboard() {
             <div>
               <div className="text-[13px] font-medium text-[#222222] mb-1">Workspace Booking</div>
               <div className="flex justify-between text-[12px]">
-                <span className="text-[#777777]">Workspace</span>
+                <span className="text-[#595959]">Workspace</span>
                 <div className="flex gap-3">
-                  <span className="text-[#777777]">Pending - {stats.approval.workspaceBooking.pending}</span>
+                  <span className="text-[#595959]">Pending - {stats.approval.workspaceBooking.pending}</span>
                   <span className="text-[#0047B2]">Approved - {stats.approval.workspaceBooking.approved}</span>
                 </div>
               </div>

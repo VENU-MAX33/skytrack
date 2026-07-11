@@ -23,7 +23,7 @@ function typeIcon(type: AppNotification["type"]) {
     case "sos": return <AlertTriangle className="w-4 h-4 text-[#D22630]" />;
     case "location-request": return <MapPin className="w-4 h-4 text-[#E65100]" />;
     case "employee-location": return <Navigation className="w-4 h-4 text-[#0047B2]" />;
-    default: return <Info className="w-4 h-4 text-[#777]" />;
+    default: return <Info className="w-4 h-4 text-[#595959]" />;
   }
 }
 
@@ -171,7 +171,7 @@ export default function Header() {
               <div className="absolute right-0 mt-2 w-[340px] bg-white rounded-lg shadow-xl border border-[#E0E4E9] z-[1200] max-h-[440px] flex flex-col">
                 <div className="px-4 py-3 border-b border-[#E0E4E9] flex items-center justify-between">
                   <span className="text-[13px] font-semibold text-[#222]">Notifications</span>
-                  <span className="text-[11px] text-[#777]">{items.length} recent</span>
+                  <span className="text-[11px] text-[#595959]">{items.length} recent</span>
                 </div>
                 <div className="overflow-y-auto flex-1">
                   {items.length === 0 ? (
@@ -188,7 +188,7 @@ export default function Header() {
                         <span className="mt-0.5 shrink-0">{typeIcon(n.type)}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[12px] font-medium text-[#222] truncate">{n.title}</span>
-                          {n.body && <span className="block text-[11px] text-[#777] truncate">{n.body}</span>}
+                          {n.body && <span className="block text-[11px] text-[#595959] truncate">{n.body}</span>}
                           <span className="block text-[10px] text-[#aaa] mt-0.5">{relativeTime(n.createdAt)}</span>
                         </span>
                       </button>
@@ -223,7 +223,7 @@ export default function Header() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-[#222] truncate">{user.name}</div>
-                    <div className="text-[11px] text-[#777] truncate">{user.email}</div>
+                    <div className="text-[11px] text-[#595959] truncate">{user.email}</div>
                   </div>
                 </div>
                 <div className="px-4 py-2 border-b border-[#E0E4E9]">

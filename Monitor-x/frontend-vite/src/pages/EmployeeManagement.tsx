@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getEmployees, deleteEmployee } from "../api";
 import type { Employee } from "../api";
 import Pagination from "../components/Pagination";
+import Modal from "../components/Modal";
 import { exportToCsv } from "../lib/exportCsv";
 import { exportToExcel, parseExcel, downloadTemplate } from "../lib/excel";
 import { getEmployeeDocs, uploadEmployeeDoc, deleteEmployeeDoc, getEmployeeDocFull } from "../api/employeeDocuments";
@@ -299,23 +300,23 @@ export default function EmployeeManagement() {
       {/* Stats */}
       <div className="grid grid-cols-5 gap-4 mb-4">
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Male</div>
+          <div className="text-[12px] text-[#595959] mb-1">Male</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{male}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Female</div>
+          <div className="text-[12px] text-[#595959] mb-1">Female</div>
           <div className="text-[24px] font-semibold text-[#D22630]">{female}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Total Employee</div>
+          <div className="text-[12px] text-[#595959] mb-1">Total Employee</div>
           <div className="text-[24px] font-semibold text-[#0047B2]">{employees.length}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Employee without Km</div>
+          <div className="text-[12px] text-[#595959] mb-1">Employee without Km</div>
           <div className="text-[24px] font-semibold text-[#E65100]">{noKm}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777777] mb-1">Active</div>
+          <div className="text-[12px] text-[#595959] mb-1">Active</div>
           <div className="text-[24px] font-semibold text-[#18751C]">{active}</div>
         </div>
       </div>
@@ -324,8 +325,9 @@ export default function EmployeeManagement() {
       <div className="dashboard-card p-4 mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-[#777777]">Mode</label>
+            <label htmlFor="emp-mode-filter" className="text-[13px] text-[#595959]">Mode</label>
             <select
+              id="emp-mode-filter"
               value={vendorFilter}
               onChange={(e) => { setVendorFilter(e.target.value); setPage(1); }}
               className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
@@ -336,7 +338,7 @@ export default function EmployeeManagement() {
             </select>
           </div>
           <div className="flex items-center gap-2 flex-1 ml-4">
-            <Search className="w-4 h-4 text-[#777777]" />
+            <Search className="w-4 h-4 text-[#595959]" />
             <input
               type="text"
               value={search}
@@ -387,7 +389,7 @@ export default function EmployeeManagement() {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={23} className="text-center py-8 text-[#777777]">No employees found</td></tr>
+              <tr><td colSpan={23} className="text-center py-8 text-[#595959]">No employees found</td></tr>
             ) : (
               paginated.map((emp) => (
                 <tr key={emp.id} className={selected.has(emp.id) ? "bg-[#FFF5F5]" : ""}>
@@ -455,15 +457,18 @@ export default function EmployeeManagement() {
       </div>
 
       {/* Excel Import Preview Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-2xl w-[92vw] max-w-4xl max-h-[80vh] flex flex-col">
+      <Modal
+        open={showImportModal}
+        onClose={() => { setShowImportModal(false); setImportRows([]); }}
+        title={`Import Employees — ${importRows.length} rows found`}
+        panelClassName="w-[92vw] max-w-4xl max-h-[80vh] flex flex-col"
+      >
             <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
                 <span className="text-[14px] font-semibold text-[#222]">Import Employees — {importRows.length} row{importRows.length !== 1 ? 's' : ''} found</span>
               </div>
-              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#777] hover:text-[#222]"><X className="w-4 h-4" /></button>
+              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#595959] hover:text-[#222]"><X className="w-4 h-4" /></button>
             </div>
             <div className="overflow-auto flex-1 p-4">
               <table className="w-full text-[12px] border-collapse">
@@ -499,33 +504,34 @@ export default function EmployeeManagement() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Document Management Modal */}
-      {showDocModal && docEmpId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-2xl w-[90vw] max-w-2xl max-h-[80vh] flex flex-col">
+      <Modal
+        open={!!(showDocModal && docEmpId)}
+        onClose={() => { setShowDocModal(false); setDocEmpId(null); setDocs([]); }}
+        title={`Documents — ${docEmpId ?? ''}`}
+        panelClassName="w-[90vw] max-w-2xl max-h-[80vh] flex flex-col"
+      >
             <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#18751C]" />
                 <span className="text-[14px] font-semibold text-[#222]">Documents — {docEmpId}</span>
               </div>
-              <button onClick={() => { setShowDocModal(false); setDocEmpId(null); setDocs([]); }} className="text-[#777] hover:text-[#222]"><X className="w-4 h-4" /></button>
+              <button onClick={() => { setShowDocModal(false); setDocEmpId(null); setDocs([]); }} className="text-[#595959] hover:text-[#222]"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-auto p-4">
               {docsLoading ? (
-                <div className="text-center py-8 text-[13px] text-[#777]">Loading…</div>
+                <div className="text-center py-8 text-[13px] text-[#595959]">Loading…</div>
               ) : docs.length === 0 ? (
-                <div className="text-center py-8 text-[13px] text-[#777]">No documents uploaded yet</div>
+                <div className="text-center py-8 text-[13px] text-[#595959]">No documents uploaded yet</div>
               ) : (
                 <div className="space-y-2">
                   {docs.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between gap-2 bg-[#F5F6FA] rounded px-3 py-2">
                       <div className="min-w-0">
                         <div className="text-[13px] font-medium text-[#222] truncate">{doc.name}</div>
-                        <div className="text-[11px] text-[#777]">{doc.mimeType} · {new Date(doc.uploadedAt).toLocaleDateString()}</div>
+                        <div className="text-[11px] text-[#595959]">{doc.mimeType} · {new Date(doc.uploadedAt).toLocaleDateString()}</div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => handleViewDoc(doc.id)} className="p-1 hover:bg-[#E0E4E9] rounded text-[#0047B2]" title="View"><Eye className="w-3.5 h-3.5" /></button>
@@ -551,17 +557,20 @@ export default function EmployeeManagement() {
                 </label>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Document Viewer */}
-      {viewDoc && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70">
-          <div className="bg-white rounded-lg shadow-2xl w-[85vw] max-w-2xl max-h-[85vh] flex flex-col">
+      <Modal
+        open={!!viewDoc}
+        onClose={() => setViewDoc(null)}
+        title={viewDoc ? `Document: ${viewDoc.name}` : 'Document'}
+        panelClassName="w-[85vw] max-w-2xl max-h-[85vh] flex flex-col"
+      >
+        {viewDoc && (
+          <>
             <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
               <span className="text-[14px] font-semibold text-[#222]">{viewDoc.name}</span>
-              <button onClick={() => setViewDoc(null)} className="text-[#777] hover:text-[#222]"><X className="w-4 h-4" /></button>
+              <button onClick={() => setViewDoc(null)} className="text-[#595959] hover:text-[#222]" aria-label="Close document viewer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
               {viewDoc.mimeType.startsWith('image/') ? (
@@ -572,9 +581,9 @@ export default function EmployeeManagement() {
                 <div className="text-[13px] text-[#555]">Preview not available. <a href={`data:${viewDoc.mimeType};base64,${viewDoc.base64}`} download={viewDoc.name} className="text-[#0047B2] underline">Download</a></div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }

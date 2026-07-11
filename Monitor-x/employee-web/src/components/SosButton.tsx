@@ -228,7 +228,7 @@ export default function SosButton({ tripId }: { tripId?: string }) {
               <div className="text-center py-6">
                 <AlertTriangle size={36} className="text-[#d32f2f] mx-auto mb-3 animate-pulse" />
                 <div className="font-semibold text-[15px]">Sending SOS…</div>
-                <div className="text-[12px] text-[#777] mt-1">Getting your location and alerting admin</div>
+                <div className="text-[12px] text-[#595959] mt-1">Getting your location and alerting admin</div>
               </div>
             )}
           </div>

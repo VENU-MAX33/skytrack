@@ -71,7 +71,7 @@ export default function ActivateDeactivate() {
             className={`px-4 py-2 rounded-t text-[13px] capitalize transition-colors ${
               activeTab === tab
                 ? "bg-[#0047B2] text-white"
-                : "bg-white text-[#777777] hover:bg-[#F5F6FA]"
+                : "bg-white text-[#595959] hover:bg-[#F5F6FA]"
             }`}
           >
             {tab}
@@ -82,7 +82,7 @@ export default function ActivateDeactivate() {
       {/* Search */}
       <div className="dashboard-card p-4 mb-4">
         <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-[#777777]" />
+          <Search className="w-4 h-4 text-[#595959]" />
           <input
             type="text"
             value={search}
@@ -110,7 +110,7 @@ export default function ActivateDeactivate() {
             </thead>
             <tbody>
               {filteredEmployees.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-[#777777]">No items to display</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-[#595959]">No items to display</td></tr>
               ) : (
                 filteredEmployees.map((emp) => (
                   <tr key={emp.id}>
@@ -125,6 +125,7 @@ export default function ActivateDeactivate() {
                           type="checkbox"
                           defaultChecked={emp.active === "Yes"}
                           onChange={(e) => setEmployeeActive(emp.id, e.target.checked)}
+                          aria-label={`Active status for employee ${emp.name}`}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0047B2]"></div>
@@ -155,7 +156,7 @@ export default function ActivateDeactivate() {
             </thead>
             <tbody>
               {filteredVehicles.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-[#777777]">No items to display</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-[#595959]">No items to display</td></tr>
               ) : (
                 filteredVehicles.map((v) => (
                   <tr key={v.rtoNo}>
@@ -170,6 +171,7 @@ export default function ActivateDeactivate() {
                           type="checkbox"
                           defaultChecked={v.active === "Yes"}
                           onChange={(e) => setVehicleActive(v.rtoNo, e.target.checked)}
+                          aria-label={`Active status for vehicle ${v.rtoNo}`}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0047B2]"></div>
@@ -199,7 +201,7 @@ export default function ActivateDeactivate() {
             </thead>
             <tbody>
               {filteredDrivers.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-[#777777]">No items to display</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-[#595959]">No items to display</td></tr>
               ) : (
                 filteredDrivers.map((d, idx) => (
                   <tr key={idx}>
@@ -214,6 +216,7 @@ export default function ActivateDeactivate() {
                           type="checkbox"
                           defaultChecked={d.active === "Yes"}
                           onChange={(e) => setDriverActive(d.name, e.target.checked)}
+                          aria-label={`Active status for driver ${d.name}`}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0047B2]"></div>

@@ -98,15 +98,15 @@ export default function LocationRequests() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Pending Review</div>
+          <div className="text-[12px] text-[#595959] mb-1">Pending Review</div>
           <div className="text-[24px] font-semibold text-[#E65100]">{counts.pending}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Approved</div>
+          <div className="text-[12px] text-[#595959] mb-1">Approved</div>
           <div className="text-[24px] font-semibold text-[#18751C]">{counts.approved}</div>
         </div>
         <div className="dashboard-card p-4">
-          <div className="text-[12px] text-[#777] mb-1">Rejected</div>
+          <div className="text-[12px] text-[#595959] mb-1">Rejected</div>
           <div className="text-[24px] font-semibold text-[#D22630]">{counts.rejected}</div>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function LocationRequests() {
             className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
               tab === t.key
                 ? 'border-[#0047B2] text-[#0047B2]'
-                : 'border-transparent text-[#777] hover:text-[#222]'
+                : 'border-transparent text-[#595959] hover:text-[#222]'
             }`}
           >
             {t.label}
@@ -135,7 +135,7 @@ export default function LocationRequests() {
 
       {/* Request list */}
       {filtered.length === 0 ? (
-        <div className="dashboard-card p-10 text-center text-[#777] text-[14px]">
+        <div className="dashboard-card p-10 text-center text-[#595959] text-[14px]">
           No {tab === 'all' ? '' : tab} location requests
         </div>
       ) : (
@@ -147,9 +147,9 @@ export default function LocationRequests() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px] font-semibold text-[#222]">{r.employee.name}</span>
-                    <span className="text-[11px] text-[#777]">({r.employee.id})</span>
+                    <span className="text-[11px] text-[#595959]">({r.employee.id})</span>
                     <span className="text-[11px] text-[#999]">·</span>
-                    <span className="text-[11px] text-[#777]">{r.employee.contact}</span>
+                    <span className="text-[11px] text-[#595959]">{r.employee.contact}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-[#999]">
                     <Clock className="w-3 h-3" />
@@ -186,13 +186,13 @@ export default function LocationRequests() {
               {/* Location comparison */}
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="bg-[#F5F6FA] rounded-lg p-3">
-                  <div className="text-[11px] text-[#777] font-medium uppercase tracking-wide mb-2">
+                  <div className="text-[11px] text-[#595959] font-medium uppercase tracking-wide mb-2">
                     Current Location
                   </div>
                   <div className="text-[12px] text-[#444] mb-1">{r.currentAddress || '—'}</div>
                   {r.currentLatLong && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#777] font-mono">{r.currentLatLong}</span>
+                      <span className="text-[11px] text-[#595959] font-mono">{r.currentLatLong}</span>
                       {mapsLink(r.currentLatLong) && (
                         <a
                           href={mapsLink(r.currentLatLong)!}
@@ -214,7 +214,7 @@ export default function LocationRequests() {
                   <div className="text-[12px] text-[#444] mb-1">{r.requestedAddress || '—'}</div>
                   {r.requestedLatLong && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#777] font-mono">{r.requestedLatLong}</span>
+                      <span className="text-[11px] text-[#595959] font-mono">{r.requestedLatLong}</span>
                       {mapsLink(r.requestedLatLong) && (
                         <a
                           href={mapsLink(r.requestedLatLong)!}
@@ -260,7 +260,7 @@ export default function LocationRequests() {
                       </button>
                       <button
                         onClick={() => { setRejectId(null); setRejectNote(''); }}
-                        className="border border-[#E0E4E9] px-3 py-2 rounded text-[13px] text-[#777]"
+                        className="border border-[#E0E4E9] px-3 py-2 rounded text-[13px] text-[#595959]"
                       >
                         Cancel
                       </button>

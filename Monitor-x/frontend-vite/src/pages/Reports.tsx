@@ -165,7 +165,7 @@ export default function Reports() {
             className={`flex items-center gap-2 px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
               reportType === t.key
                 ? "border-[#0047B2] text-[#0047B2]"
-                : "border-transparent text-[#777] hover:text-[#222]"
+                : "border-transparent text-[#595959] hover:text-[#222]"
             }`}
           >
             {t.icon}
@@ -219,26 +219,26 @@ export default function Reports() {
           )}
 
           {(summary || generic) && (
-            <span className="text-[12px] text-[#777777]">
+            <span className="text-[12px] text-[#595959]">
               Showing {reportType === "trips" ? `${summary?.from} to ${summary?.to}` : `${generic?.from} to ${generic?.to}`}
               {" · "}{rowCount} records
             </span>
           )}
         </div>
       ) : (
-        <div className="dashboard-card p-4 mb-4 text-[12px] text-[#777777]">
+        <div className="dashboard-card p-4 mb-4 text-[12px] text-[#595959]">
           Full {activeTab.label.toLowerCase()} master list — {rowCount} records
         </div>
       )}
 
       {loading ? (
-        <div className="dashboard-card p-10 text-center text-[#777777] text-[14px]">Loading report…</div>
+        <div className="dashboard-card p-10 text-center text-[#595959] text-[14px]">Loading report…</div>
       ) : reportType === "trips" && summary ? (
         <>
           <div className="grid grid-cols-3 gap-4 mb-4">
             {statCards.map((s) => (
               <div key={s.label} className="dashboard-card p-4">
-                <div className="text-[12px] text-[#777777] mb-1">{s.label}</div>
+                <div className="text-[12px] text-[#595959] mb-1">{s.label}</div>
                 <div className="text-[20px] font-semibold text-[#0047B2]">{s.value}</div>
               </div>
             ))}
@@ -251,7 +251,7 @@ export default function Reports() {
                 {summary.vendorBreakdown.map((v) => (
                   <div key={v.vendor} className="bg-[#F9F9F9] rounded p-3">
                     <div className="text-[12px] text-[#222222] font-medium mb-1">{v.vendor}</div>
-                    <div className="text-[11px] text-[#777777]">
+                    <div className="text-[11px] text-[#595959]">
                       {v.completed}/{v.trips} completed
                     </div>
                   </div>

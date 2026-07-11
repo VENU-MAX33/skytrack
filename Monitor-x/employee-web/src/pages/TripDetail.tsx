@@ -30,7 +30,7 @@ export default function TripDetail() {
     };
   }, [on, load]);
 
-  if (!trip) return <div className="app-shell p-6 text-[#777]">Loading…</div>;
+  if (!trip) return <div className="app-shell p-6 text-[#595959]">Loading…</div>;
 
   return (
     <div className="app-shell pb-28">
@@ -72,7 +72,7 @@ export default function TripDetail() {
 function Row({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
     <div className="flex justify-between gap-3 text-[14px] py-[2px]">
-      <span className="text-[#777]">{label}</span>
+      <span className="text-[#595959]">{label}</span>
       <span className={`font-medium text-right ${valueClass ?? ''}`}>{value}</span>
     </div>
   );

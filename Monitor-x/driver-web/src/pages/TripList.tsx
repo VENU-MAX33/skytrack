@@ -70,7 +70,7 @@ export default function TripList() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex-1 py-2 rounded-lg text-[13px] font-semibold ${
-              tab === t.key ? 'bg-[#dfd8f5] text-[#6a5ca1]' : 'text-[#777]'
+              tab === t.key ? 'bg-[#dfd8f5] text-[#6a5ca1]' : 'text-[#595959]'
             }`}
           >
             {t.label}
@@ -96,7 +96,7 @@ export default function TripList() {
                   {trip.type}
                 </span>
               </div>
-              <div className="text-[12px] text-[#777]">
+              <div className="text-[12px] text-[#595959]">
                 {trip.date} · {trip.shiftTime || '—'} · {trip.route || trip.location}
               </div>
               <div className="flex items-center gap-1 text-[12px] text-[#555]">
