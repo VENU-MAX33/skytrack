@@ -6,6 +6,7 @@ import type { EmployeeTrip } from '../api/types';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 import SosButton from '../components/SosButton';
+import EscortButton from '../components/EscortButton';
 
 export default function TripDetail() {
   const { id = '' } = useParams();
@@ -65,6 +66,7 @@ export default function TripDetail() {
         )}
       </div>
 
+      <EscortButton tripId={trip.id} />
       <SosButton tripId={trip.id} />
     </div>
   );

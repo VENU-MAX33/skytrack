@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 import { useSettingsSheet } from '../context/SettingsSheetContext';
 import SosButton from '../components/SosButton';
+import EscortButton from '../components/EscortButton';
 
 const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
 
@@ -226,6 +227,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      <EscortButton tripId={current?.id} />
       <SosButton tripId={current?.id} />
 
       {/* Location Update Request Modal */}
