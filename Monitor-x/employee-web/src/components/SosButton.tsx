@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Camera, ImagePlus, X, ChevronLeft } from 'lucide-react';
 import { triggerSos } from '../api/trips';
 import { useToast } from '../context/ToastContext';
@@ -25,6 +25,18 @@ export default function SosButton({ tripId }: { tripId?: string }) {
   const [photoBase64, setPhotoBase64] = useState('');
   const [photoPreview, setPhotoPreview] = useState('');
   const [showCamera, setShowCamera] = useState(false);
+  // Guards against a rapid double-tap firing two SOS alerts before React re-renders.
+  const sending = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const dialogOpen = step !== 'idle' && !showCamera;
+
+  // Move focus into the dialog when it opens; restore it to the SOS button on close.
+  useEffect(() => {
+    if (dialogOpen) dialogRef.current?.focus();
+    else if (step === 'idle') triggerRef.current?.focus();
+  }, [dialogOpen, step]);
 
   function reset() {
     setStep('idle');
@@ -62,6 +74,8 @@ export default function SosButton({ tripId }: { tripId?: string }) {
   }
 
   async function fire() {
+    if (sending.current) return; // ignore duplicate taps while a send is in flight
+    sending.current = true;
     setStep('sending');
     try {
       const location = await getLocation();
@@ -72,6 +86,8 @@ export default function SosButton({ tripId }: { tripId?: string }) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not send SOS');
       setStep('photo');
+    } finally {
+      sending.current = false;
     }
   }
 
@@ -79,7 +95,7 @@ export default function SosButton({ tripId }: { tripId?: string }) {
 
   return (
     <>
-      <button className="sos-fab" onClick={() => setStep('reason')} aria-label="SOS">
+      <button ref={triggerRef} className="sos-fab" onClick={() => setStep('reason')} aria-label="Raise an emergency SOS alert">
         SOS
       </button>
 
@@ -91,9 +107,19 @@ export default function SosButton({ tripId }: { tripId?: string }) {
         />
       )}
 
-      {step !== 'idle' && !showCamera && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4">
-          <div className="card w-full max-w-[400px] p-5">
+      {dialogOpen && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4"
+          onKeyDown={(e) => { if (e.key === 'Escape' && step !== 'sending') reset(); }}
+        >
+          <div
+            ref={dialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Emergency SOS"
+            className="card w-full max-w-[400px] p-5 outline-none"
+          >
 
             {/* ── STEP 1: REASON ── */}
             {step === 'reason' && (

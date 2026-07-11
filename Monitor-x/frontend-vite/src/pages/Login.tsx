@@ -40,11 +40,14 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[13px] text-[#777777] mb-1">
+            <label htmlFor="login-email" className="block text-[13px] text-[#595959] mb-1">
               Email
             </label>
             <input
+              id="login-email"
+              name="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
@@ -54,11 +57,14 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-[13px] text-[#777777] mb-1">
+            <label htmlFor="login-password" className="block text-[13px] text-[#595959] mb-1">
               Password
             </label>
             <input
+              id="login-password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -68,7 +74,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-[12px] text-[#D22630]">{error}</p>
+            <p role="alert" className="text-[12px] text-[#D22630]">{error}</p>
           )}
 
           <button

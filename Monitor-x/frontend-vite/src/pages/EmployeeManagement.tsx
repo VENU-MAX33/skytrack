@@ -54,7 +54,11 @@ export default function EmployeeManagement() {
   const [viewDoc, setViewDoc] = useState<(EmployeeDocumentDTO & { base64: string }) | null>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { getEmployees().then(setEmployees); }, []);
+  useEffect(() => {
+    getEmployees()
+      .then(setEmployees)
+      .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load employees'));
+  }, [toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -192,23 +196,28 @@ export default function EmployeeManagement() {
 
   async function handleDocFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    const input = e.target; // capture before any await (the event is pooled)
     if (!file || !docEmpId) return;
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const base64 = (ev.target?.result as string).split(',')[1];
-        await uploadEmployeeDoc(docEmpId, { name: uploadName || file.name, mimeType: file.type, base64 });
-        toast.success('Document uploaded');
-        setUploadName('');
-        setDocs(await getEmployeeDocs(docEmpId));
-      };
-      reader.readAsDataURL(file);
-    } catch {
-      toast.error('Upload failed');
+      // Read the file first, awaiting completion, so upload errors and the
+      // uploading state are tied to the actual async result (not fire-and-forget).
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Could not read the selected file'));
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.split(',')[1];
+      await uploadEmployeeDoc(docEmpId, { name: uploadName || file.name, mimeType: file.type, base64 });
+      toast.success('Document uploaded');
+      setUploadName('');
+      setDocs(await getEmployeeDocs(docEmpId));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
-      e.target.value = '';
+      input.value = '';
     }
   }
 
