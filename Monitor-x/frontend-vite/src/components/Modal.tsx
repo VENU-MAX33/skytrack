@@ -76,6 +76,8 @@ export default function Modal({ open, onClose, title, panelClassName = '', child
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      // Backdrop click-to-close is a pointer convenience; the keyboard path is Escape (handled above).
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div

@@ -87,6 +87,8 @@ export default function Modal({
       className={`fixed inset-0 z-[10000] flex justify-center bg-black/60 ${
         align === 'bottom' ? 'items-end' : 'items-center p-4'
       }`}
+      // Backdrop click-to-close is a pointer convenience; Escape is the keyboard path (handled above).
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose(); }}
     >
       <div

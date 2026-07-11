@@ -23,26 +23,35 @@ export default function StatCard({ title, stats, className = "" }: StatCardProps
         {title}
       </h3>
       <div className="grid grid-cols-2 gap-4">
-        {stats.map((stat, index) => (
-          <div
-            key={index}
-            onClick={stat.to ? () => navigate(stat.to!) : undefined}
-            className={`bg-[#F9F9F9] rounded p-3 ${
-              stat.to ? "cursor-pointer hover:bg-[#F0F4FA] transition-colors" : ""
-            }`}
-            role={stat.to ? "link" : undefined}
-            title={stat.to ? `View ${stat.label}` : undefined}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
-              <StatIcon label={stat.label} size={12} />
-              <span className="text-[12px] text-[#595959]">{stat.label}</span>
+        {stats.map((stat, index) => {
+          const inner = (
+            <>
+              <div className="flex items-center gap-1.5 mb-1">
+                <StatIcon label={stat.label} size={12} />
+                <span className="text-[12px] text-[#595959]">{stat.label}</span>
+              </div>
+              <div className="text-[20px] font-semibold text-[#0047B2]">{stat.value}</div>
+              {stat.subLabel && (
+                <div className="text-[11px] text-[#848484] mt-1">{stat.subLabel}</div>
+              )}
+            </>
+          );
+          return stat.to ? (
+            <button
+              key={index}
+              type="button"
+              onClick={() => navigate(stat.to!)}
+              aria-label={`View ${stat.label}`}
+              className="bg-[#F9F9F9] rounded p-3 text-left w-full cursor-pointer hover:bg-[#F0F4FA] transition-colors"
+            >
+              {inner}
+            </button>
+          ) : (
+            <div key={index} className="bg-[#F9F9F9] rounded p-3">
+              {inner}
             </div>
-            <div className="text-[20px] font-semibold text-[#0047B2]">{stat.value}</div>
-            {stat.subLabel && (
-              <div className="text-[11px] text-[#848484] mt-1">{stat.subLabel}</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

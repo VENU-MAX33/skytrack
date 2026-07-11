@@ -255,12 +255,13 @@ export default function MasterRouting() {
               </div>
             </div>
           ) : (
-            <div
-              className="px-3 py-2 bg-amber-50 border-b border-amber-200 rounded-t text-[11px] text-amber-700 cursor-pointer hover:bg-amber-100"
+            <button
+              type="button"
+              className="block w-full text-left px-3 py-2 bg-amber-50 border-b border-amber-200 rounded-t text-[11px] text-amber-700 cursor-pointer hover:bg-amber-100"
               onClick={() => navigate("/route-management")}
             >
               ⚠ Set company location in Route Management →
-            </div>
+            </button>
           )}
 
           <div className="p-3 border-b border-[#E0E4E9]">
@@ -282,9 +283,9 @@ export default function MasterRouting() {
             {routes.length === 0 && (
               <div className="text-[12px] text-[#999] text-center py-6">
                 No routes yet.{" "}
-                <span className="text-[#0047B2] cursor-pointer underline" onClick={() => navigate("/route-management")}>
+                <button type="button" className="text-[#0047B2] cursor-pointer underline" onClick={() => navigate("/route-management")}>
                   Create one in Route Management
-                </span>
+                </button>
               </div>
             )}
             {routes.map((route) => {

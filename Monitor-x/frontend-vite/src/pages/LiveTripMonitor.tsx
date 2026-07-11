@@ -329,16 +329,18 @@ export default function LiveTripMonitor() {
       {/* Status Counts */}
       <div className="grid grid-cols-5 gap-2 mb-4">
         {statusCounts.map((status) => (
-          <div
+          <button
             key={status.label}
+            type="button"
             onClick={() => toggleStatusCard(status.label)}
-            className={`dashboard-card p-3 cursor-pointer transition-shadow hover:shadow-md ${status.color} ${
+            aria-pressed={statusFilter === status.label}
+            className={`dashboard-card p-3 text-left w-full cursor-pointer transition-shadow hover:shadow-md ${status.color} ${
               statusFilter === status.label ? "ring-2 ring-[#0047B2]" : ""
             }`}
           >
             <div className="text-[11px] mb-1">{status.label}</div>
             <div className="text-[20px] font-semibold">{status.count}</div>
-          </div>
+          </button>
         ))}
       </div>
 

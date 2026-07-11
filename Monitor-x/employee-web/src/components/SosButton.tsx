@@ -111,6 +111,8 @@ export default function SosButton({ tripId }: { tripId?: string }) {
       )}
 
       {dialogOpen && (
+        // Overlay carries an Escape handler; the inner dialog is role/aria/focus-managed below.
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4"
           onKeyDown={(e) => { if (e.key === 'Escape' && step !== 'sending') reset(); }}
