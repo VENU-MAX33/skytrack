@@ -22,6 +22,15 @@ interface TripImportRow {
   Type?: string;
 }
 
+function OfficeStop({ label }: { label: string }) {
+  return (
+    <li className="bg-[#EEF3FB] p-3 rounded border border-[#CBD9F0] flex items-center gap-3">
+      <span className="shrink-0 w-6 h-6 rounded-full bg-[#0047B2] text-white flex items-center justify-center">🏢</span>
+      <span className="text-[13px] font-medium text-[#0047B2]">{label}</span>
+    </li>
+  );
+}
+
 export default function TripManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -608,28 +617,45 @@ export default function TripManagement() {
                     <tr>
                       <td colSpan={12} className="p-0 border-b border-[#E0E4E9]">
                         <div className="bg-[#F9F9F9] p-4 shadow-inner">
-                          <h3 className="text-[14px] font-semibold text-[#222222] mb-3">Employees Details ({trip.employees?.length || 0})</h3>
+                          <h3 className="text-[14px] font-semibold text-[#222222] mb-1">Pickup / Drop Sequence ({trip.employees?.length || 0})</h3>
+                          <p className="text-[11px] text-[#848484] mb-3">
+                            {trip.type === 'Drop'
+                              ? 'Ordered from the office to the farthest drop-off (nearest first).'
+                              : 'Ordered by distance from the office (farthest pickup first), ending at the office.'}
+                          </p>
                           {trip.employees && trip.employees.length > 0 ? (
-                            <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-                              {trip.employees.map(emp => (
-                                <div key={emp.id} className="bg-white p-3 rounded shadow-sm border border-[#E0E4E9] flex justify-between items-start">
-                                  <div>
-                                    <div className="text-[13px] font-medium text-[#222222] flex items-center gap-1">
-                                      {emp.name} <span className="text-[#595959] font-normal text-[11px]">({emp.id})</span>
-                                      {trip.verifiedEmployeeIds?.includes(emp.id) && (
-                                        <span className="text-[10px] font-semibold text-[#18751C] bg-[#E9FDEA] px-1.5 py-[1px] rounded">✓ Verified</span>
+                            <ol className="flex flex-col gap-2">
+                              {/* Drop trips begin at the office */}
+                              {trip.type === 'Drop' && <OfficeStop label="Start — Office" />}
+                              {trip.employees.map((emp, i) => (
+                                <li key={emp.id} className="bg-white p-3 rounded shadow-sm border border-[#E0E4E9] flex justify-between items-start gap-3">
+                                  <div className="flex items-start gap-3">
+                                    <span className="shrink-0 w-6 h-6 rounded-full bg-[#0047B2] text-white text-[12px] font-semibold flex items-center justify-center mt-[1px]">
+                                      {i + 1}
+                                    </span>
+                                    <div>
+                                      <div className="text-[13px] font-medium text-[#222222] flex items-center gap-1 flex-wrap">
+                                        {emp.name} <span className="text-[#595959] font-normal text-[11px]">({emp.id})</span>
+                                        {trip.verifiedEmployeeIds?.includes(emp.id) && (
+                                          <span className="text-[10px] font-semibold text-[#18751C] bg-[#E9FDEA] px-1.5 py-[1px] rounded">✓ Verified</span>
+                                        )}
+                                      </div>
+                                      <div className="text-[11px] text-[#595959] mt-1">Gender: {emp.gender}</div>
+                                      <div className="text-[11px] text-[#595959] mt-1">Route: {emp.route || '-'}</div>
+                                      <div className="text-[11px] text-[#595959] mt-1">Location: {emp.location || emp.nodalPoint}</div>
+                                      {emp.distance && (
+                                        <div className="text-[11px] text-[#595959] mt-1">{emp.distance} km from office</div>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-[#595959] mt-1">Gender: {emp.gender}</div>
-                                    <div className="text-[11px] text-[#595959] mt-1">Route: {emp.route || '-'}</div>
-                                    <div className="text-[11px] text-[#595959] mt-1">Location: {emp.location || emp.nodalPoint}</div>
                                   </div>
-                                  <div className="text-[11px] text-[#595959] text-right">
+                                  <div className="text-[11px] text-[#595959] text-right shrink-0">
                                     Contact:<br/><span className="text-[#222222]">{emp.contact}</span>
                                   </div>
-                                </div>
+                                </li>
                               ))}
-                            </div>
+                              {/* Pickup trips end at the office */}
+                              {trip.type !== 'Drop' && <OfficeStop label="Final — Office" />}
+                            </ol>
                           ) : (
                             <div className="text-[13px] text-[#595959]">No employees found for this trip.</div>
                           )}
