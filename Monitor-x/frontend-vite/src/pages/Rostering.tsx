@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Calendar, Search, Download, Upload, X, Check, MoreVertical } from "lucide-react";
+import { Users, Calendar, Search, X, Check, MoreVertical } from "lucide-react";
 import { getEmployees, getRosters, saveRosters, deleteRosters } from "../api";
 import type { Employee, RosterEntry } from "../api";
 import { useToast } from "../context/ToastContext";
@@ -54,7 +54,6 @@ export default function Rostering() {
   const [fromDate, setFromDate] = useState(() => searchParams.get("date") ?? todayStr());
   const [toDate, setToDate] = useState(() => addDays(searchParams.get("date") ?? todayStr(), 7));
   const [teamFilter, setTeamFilter] = useState("All");
-  const [activeTab, setActiveTab] = useState<"login" | "logout" | "both">("both");
   const [rosterType, setRosterType] = useState("normal");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMode, setShowMode] = useState<"all" | "selected">("all");
@@ -284,14 +283,7 @@ export default function Rostering() {
               {teams.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <button className="bg-[#0047B2] text-white px-4 py-2 rounded text-[13px]">Roster</button>
           <button onClick={handleSaveAll} disabled={saving} className="bg-[#18751C] text-white px-4 py-2 rounded text-[13px] disabled:opacity-50">Save</button>
-          
-          <div className="flex items-center gap-1 ml-4 border rounded border-[#E0E4E9] overflow-hidden">
-            {(["login", "logout", "both"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-[13px] capitalize ${activeTab === tab ? "bg-[#0047B2] text-white" : "bg-white text-[#595959]"}`}>{tab}</button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -310,7 +302,6 @@ export default function Rostering() {
             <Search className="w-4 h-4 text-[#595959] absolute left-2 top-1/2 -translate-y-1/2" />
             <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="border border-[#E0E4E9] rounded pl-8 pr-3 py-1.5 text-[13px] w-64" />
           </div>
-          <button className="text-[13px] border px-3 py-1.5 rounded flex items-center gap-1"><Download className="w-4 h-4"/> Import/Export</button>
         </div>
       </div>
 
