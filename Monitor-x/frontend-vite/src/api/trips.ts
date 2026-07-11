@@ -39,6 +39,15 @@ export async function changeTripVehicle(tripId: string, vehicleNo: string): Prom
   return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/vehicle`, { vehicleNo });
 }
 
+/** Set whether a trip has an escort, plus optional escort name. Admin + staff. */
+export async function updateTripEscort(
+  tripId: string,
+  escort: 'Yes' | 'No',
+  escortName: string
+): Promise<Trip> {
+  return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/escort`, { escort, escortName });
+}
+
 // Only unlocked (not frozen) trips can be deleted; the backend enforces this too.
 export async function deleteTrip(tripId: string): Promise<void> {
   return apiDelete(`/api/trips/${encodeURIComponent(tripId)}`);

@@ -92,6 +92,7 @@ export interface Trip {
   type: string;
   date: string;
   escort: string;
+  escortName?: string;
   shiftTime: string;
   empCount: number;
   location: string;
