@@ -22,6 +22,27 @@ const corsOrigins = (
   .map((o) => o.trim())
   .filter(Boolean);
 
+// Fail closed: production must use a real SMS provider. 'dev' mode sends no SMS
+// (it only logs the code server-side), so silently running it in production
+// would break OTP login entirely — refuse to start instead.
+export function assertSmsProviderSafe(nodeEnv: string | undefined, smsProvider: string): void {
+  if (nodeEnv === 'production' && smsProvider === 'dev') {
+    throw new Error(
+      "SMS_PROVIDER must be a real provider ('fast2sms' or 'msg91') in production — refusing to start in 'dev' mode, which sends no SMS."
+    );
+  }
+}
+
+// OTP / SMS delivery: 'dev' logs to console only; 'fast2sms'/'msg91' wire real SMS.
+const smsProvider = (process.env.SMS_PROVIDER ?? 'dev') as 'dev' | 'msg91' | 'fast2sms';
+
+try {
+  assertSmsProviderSafe(process.env.NODE_ENV, smsProvider);
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 5000),
   mongodbUri: required('MONGODB_URI'),
@@ -29,8 +50,7 @@ export const env = {
   corsOrigins,
   // Shared default password seeded for every employee; admin can reset later.
   defaultEmployeePassword: process.env.DEFAULT_EMPLOYEE_PASSWORD ?? 'monitorx@123',
-  // OTP / SMS delivery: 'dev' logs to console + emits over WebSocket; 'fast2sms'/'msg91' wire real SMS.
-  smsProvider: (process.env.SMS_PROVIDER ?? 'dev') as 'dev' | 'msg91' | 'fast2sms',
+  smsProvider,
   fast2smsApiKey: process.env.FAST2SMS_API_KEY ?? '',
   msg91: {
     authKey: process.env.MSG91_AUTH_KEY ?? '',

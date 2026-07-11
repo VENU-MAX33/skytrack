@@ -1,5 +1,7 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import { requireRole } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
@@ -36,6 +38,28 @@ import { feedbackRouter } from './routes/feedback.js';
 // with an explicit role gate on every back-office mount.
 const requireBackOffice = requireRole('admin', 'staff');
 
+// Brute-force protection on the credential endpoints. Limits are per client IP.
+// (OTP sends also have a per-phone cap inside otp.service.) validate.xForwardedForHeader
+// is disabled because the proxy/trust-proxy setup is a deployment concern, not
+// something these limiters should warn about on every boot.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please wait a few minutes and try again.' },
+  validate: { xForwardedForHeader: false },
+});
+
+const otpRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many OTP requests. Please wait a few minutes and try again.' },
+  validate: { xForwardedForHeader: false },
+});
+
 /**
  * Builds the Express app with all routes and middleware wired up, but without
  * connecting to the database, opening a WebSocket, or listening on a port.
@@ -44,13 +68,17 @@ const requireBackOffice = requireRole('admin', 'staff');
 export function createApp(): Express {
   const app = express();
 
+  app.use(helmet());
   app.use(cors({ origin: env.corsOrigins }));
   // 5 MB: company logo + employee document uploads travel as base64 JSON.
   app.use(express.json({ limit: '5mb' }));
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-  // --- Public auth endpoints (no middleware) ---
+  // --- Public auth endpoints (rate-limited; brute-force protection) ---
+  app.use('/api/auth/login', loginLimiter);
+  app.use('/api/driver/request-otp', otpRequestLimiter);
+  app.use('/api/employee/request-otp', otpRequestLimiter);
   app.use('/api/auth', authRouter); // admin
   app.use('/api/driver', driverAuthRouter); // driver login/set/reset (public sub-paths)
   app.use('/api/employee', employeeAuthRouter); // employee login (public sub-paths)
