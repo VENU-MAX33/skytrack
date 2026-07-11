@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info, LogOut } from "lucide-react";
+import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info, LogOut, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCompanyConfig } from "../api";
 import {
@@ -23,6 +23,7 @@ function typeIcon(type: AppNotification["type"]) {
     case "sos": return <AlertTriangle className="w-4 h-4 text-[#D22630]" />;
     case "location-request": return <MapPin className="w-4 h-4 text-[#E65100]" />;
     case "employee-location": return <Navigation className="w-4 h-4 text-[#0047B2]" />;
+    case "escort": return <UserCheck className="w-4 h-4 text-[#6a5ca1]" />;
     default: return <Info className="w-4 h-4 text-[#595959]" />;
   }
 }

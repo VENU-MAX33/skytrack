@@ -1,6 +1,6 @@
 import { apiGet, apiPut } from './client';
 
-export type NotificationType = 'sos' | 'location-request' | 'employee-location' | 'info';
+export type NotificationType = 'sos' | 'location-request' | 'employee-location' | 'escort' | 'info';
 
 export interface AppNotification {
   id: string;

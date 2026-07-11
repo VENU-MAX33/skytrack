@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
 import type { SosAlert } from '../api/sos';
+import type { EscortReport } from '../api/escortReports';
 
 type Handler = (payload: unknown) => void;
 
@@ -22,6 +23,9 @@ interface RealtimeContextValue {
   /** Queue of active SOS alerts (newest first) driving the red popup. */
   sosAlerts: SosAlert[];
   dismissSos: (id: string) => void;
+  /** Queue of escort reports from employees (newest first). */
+  escortReports: EscortReport[];
+  dismissEscortReport: (id: string) => void;
   /** Latest live location per employee (keyed by empId). */
   empLocations: EmployeeLocationUpdate[];
   /** Remove one employee's live-location entry (admin dashboard delete). */
@@ -36,6 +40,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const socketRef = useSocket(!!user);
   const [sosAlerts, setSosAlerts] = useState<SosAlert[]>([]);
+  const [escortReports, setEscortReports] = useState<EscortReport[]>([]);
   const [empLocations, setEmpLocations] = useState<EmployeeLocationUpdate[]>([]);
 
   const on = useCallback(
@@ -60,18 +65,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         const filtered = prev.filter((e) => e.empId !== upd.empId);
         return [upd, ...filtered];
       });
+    const onEscort = (report: EscortReport) =>
+      setEscortReports((prev) => (prev.some((r) => r.id === report.id) ? prev : [report, ...prev]));
+    const onEscortAck = (report: EscortReport) =>
+      setEscortReports((prev) => prev.map((r) => (r.id === report.id ? report : r)));
     socket.on('sos:alert', onSos);
     socket.on('sos:acknowledged', onAck);
     socket.on('employee:location', onEmpLoc);
+    socket.on('escort:report', onEscort);
+    socket.on('escort:report:acknowledged', onEscortAck);
     return () => {
       socket.off('sos:alert', onSos);
       socket.off('sos:acknowledged', onAck);
       socket.off('employee:location', onEmpLoc);
+      socket.off('escort:report', onEscort);
+      socket.off('escort:report:acknowledged', onEscortAck);
     };
   }, [socketRef, user]);
 
   const dismissSos = useCallback(
     (id: string) => setSosAlerts((prev) => prev.filter((a) => a.id !== id)),
+    []
+  );
+
+  const dismissEscortReport = useCallback(
+    (id: string) => setEscortReports((prev) => prev.filter((r) => r.id !== id)),
     []
   );
 
@@ -83,7 +101,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   return (
     <RealtimeContext.Provider
-      value={{ on, sosAlerts, dismissSos, empLocations, removeEmpLocation, clearEmpLocations }}
+      value={{ on, sosAlerts, dismissSos, escortReports, dismissEscortReport, empLocations, removeEmpLocation, clearEmpLocations }}
     >
       {children}
     </RealtimeContext.Provider>

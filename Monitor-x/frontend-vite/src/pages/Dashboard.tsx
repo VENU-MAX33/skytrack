@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertTriangle, Phone, MapPin, Save, Navigation, Trash2 } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Save, Navigation, Trash2, UserCheck } from "lucide-react";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
 import { getDashboardStats } from "../api";
@@ -13,6 +13,12 @@ import {
   updateSosConfig,
   type SosAlert,
 } from "../api/sos";
+import {
+  getEscortReports,
+  acknowledgeEscortReport,
+  deleteEscortReport,
+  type EscortReport,
+} from "../api/escortReports";
 import { useToast } from "../context/ToastContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { useAuth } from "../context/AuthContext";
@@ -475,6 +481,103 @@ function EmployeeLocationPanel() {
   );
 }
 
+// ── Escort Reports Panel ──────────────────────────────────────────────────────
+function EscortReportsPanel() {
+  const toast = useToast();
+  const { escortReports: liveReports } = useRealtime();
+  const [reports, setReports] = useState<EscortReport[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    getEscortReports().then(setReports).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!liveReports.length) return;
+    setReports((prev) => {
+      const byId = new Map(prev.map((r) => [r.id, r]));
+      liveReports.forEach((r) => byId.set(r.id, r));
+      return Array.from(byId.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    });
+  }, [liveReports]);
+
+  async function handleAck(id: string) {
+    setBusy(id);
+    try {
+      const updated = await acknowledgeEscortReport(id);
+      setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.success("Escort report acknowledged");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to acknowledge");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this escort report?")) return;
+    setBusy(id);
+    try {
+      await deleteEscortReport(id);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Escort report deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="dashboard-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <UserCheck className="w-4 h-4 text-[#6a5ca1]" />
+        <h2 className="text-[14px] font-semibold text-[#222222]">Escort Reports</h2>
+      </div>
+      {reports.length === 0 ? (
+        <div className="text-[13px] text-[#595959]">No escort reports.</div>
+      ) : (
+        <div className="space-y-2">
+          {reports.map((r) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 border border-[#E0E4E9] rounded p-2">
+              <div className="text-[12px]">
+                <div className="font-medium text-[#222222]">
+                  {r.employee.name || "Employee"}
+                  {r.tripId ? <span className="text-[#595959]"> · {r.tripId}</span> : null}
+                </div>
+                <div className="text-[#595959]">
+                  {r.present === "Yes" ? `Escort present${r.escortName ? ` · ${r.escortName}` : ""}` : "No escort present"}
+                </div>
+                <div className="text-[11px] text-[#848484]">{new Date(r.createdAt).toLocaleString()}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {r.status === "open" ? (
+                  <button
+                    onClick={() => handleAck(r.id)}
+                    disabled={busy === r.id}
+                    className="text-[12px] text-[#0047B2] hover:underline disabled:opacity-50"
+                  >
+                    Acknowledge
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-[#18751C]">✓ {r.acknowledgedBy || "Acknowledged"}</span>
+                )}
+                <button
+                  onClick={() => handleDelete(r.id)}
+                  disabled={busy === r.id}
+                  className="text-[12px] text-[#D22630] hover:underline disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -565,6 +668,7 @@ export default function Dashboard() {
 
       {/* SOS Alerts Panel */}
       <SosPanel />
+      <EscortReportsPanel />
 
       {/* Live Employee Locations Panel */}
       <EmployeeLocationPanel />
