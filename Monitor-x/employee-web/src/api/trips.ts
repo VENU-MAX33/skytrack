@@ -23,6 +23,19 @@ export function triggerSos(
   );
 }
 
+export function reportEscort(
+  tripId: string | undefined,
+  present: 'Yes' | 'No',
+  escortName?: string,
+  idempotencyKey?: string
+): Promise<unknown> {
+  return apiPost(
+    '/api/escort-report',
+    { tripId, present, escortName },
+    idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined
+  );
+}
+
 export function shareLocation(tripId: string, lat: number, lng: number): Promise<void> {
   return apiPost<void>('/api/employee/location', { tripId, lat, lng });
 }

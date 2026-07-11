@@ -11,6 +11,8 @@ export interface EmployeeTrip {
   route: string;
   vehicleNo: string;
   vendor: string;
+  escort: string;
+  escortName: string;
   frozen: boolean;
   startedAt: string | null;
   completedAt: string | null;

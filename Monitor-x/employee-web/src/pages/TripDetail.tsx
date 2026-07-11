@@ -55,6 +55,7 @@ export default function TripDetail() {
         <div className="card p-4">
           <Row label="Vehicle No" value={trip.vehicleNo || '—'} />
           <Row label="Vendor" value={trip.vendor || '—'} />
+          <Row label="Escort" value={trip.escort === 'Yes' ? `Yes${trip.escortName ? ` · ${trip.escortName}` : ''}` : 'No'} />
           <Row label="Driver" value={trip.driver.name || 'To be assigned'} />
         </div>
         {trip.driver.contact && (

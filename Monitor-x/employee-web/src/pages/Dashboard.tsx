@@ -178,6 +178,7 @@ export default function Dashboard() {
             </div>
             <Row label="Vehicle No" value={current.vehicleNo || '—'} />
             <Row label="Vendor" value={current.vendor || '—'} />
+            <Row label="Escort" value={current.escort === 'Yes' ? `Yes${current.escortName ? ` · ${current.escortName}` : ''}` : 'No'} />
             <Row label="Driver" value={current.driver.name || 'To be assigned'} />
           </div>
 
