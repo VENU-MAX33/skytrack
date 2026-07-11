@@ -136,6 +136,23 @@ type PopulatedTrip = Omit<HydratedDocument<TripDoc>, 'vehicleId' | 'driverId' | 
   employeeIds: HydratedDocument<EmployeeDoc>[];
 };
 
+/**
+ * Order a trip's employees by distance from the office (the `distance` field is
+ * km home→office, set when the employee is created).
+ *   PickUp: farthest first — the route ends at the office.
+ *   Drop:   nearest first — the route starts at the office.
+ * Employees with no recorded distance sort to the office-end.
+ */
+export function orderTripEmployees<T extends { distance: string }>(emps: T[], tripType: string): T[] {
+  const pickup = tripType === 'PickUp';
+  return [...emps].sort((a, b) => {
+    const da = Number(a.distance), db = Number(b.distance);
+    const va = Number.isFinite(da) ? da : (pickup ? -Infinity : Infinity);
+    const vb = Number.isFinite(db) ? db : (pickup ? -Infinity : Infinity);
+    return pickup ? vb - va : va - vb;
+  });
+}
+
 export function toTripDTO(doc: PopulatedTrip): Trip {
   const verifiedSet = new Set((doc.verifiedEmployees ?? []).map((v) => v.toString()));
   return {
@@ -153,7 +170,7 @@ export function toTripDTO(doc: PopulatedTrip): Trip {
     vendor: doc.vendor || doc.vehicleId?.vendor || '',
     vehicleNo: doc.vehicleId?.rtoNo ?? '',
     frozen: doc.frozen ?? false,
-    employees: doc.employeeIds.map(e => toEmployeeDTO(e)),
+    employees: orderTripEmployees(doc.employeeIds, doc.type).map(e => toEmployeeDTO(e)),
     verifiedEmployeeIds: doc.employeeIds
       .filter((e) => verifiedSet.has(e._id.toString()))
       .map((e) => e.empId),
@@ -210,7 +227,7 @@ export function toDriverTripDTO(doc: PopulatedTrip): DriverTrip {
     frozen: doc.frozen ?? false,
     startedAt: doc.startedAt ? doc.startedAt.toISOString() : null,
     completedAt: doc.completedAt ? doc.completedAt.toISOString() : null,
-    employees: doc.employeeIds.map((e) => ({
+    employees: orderTripEmployees(doc.employeeIds, doc.type).map((e) => ({
       id: e.empId,
       name: e.name,
       contact: e.contact,
