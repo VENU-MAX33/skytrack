@@ -9,7 +9,7 @@ export function getDriverTrip(tripId: string): Promise<DriverTrip> {
   return apiGet<DriverTrip>(`/api/driver/trips/${tripId}`);
 }
 
-export function sendOtp(tripId: string, empId: string): Promise<{ sent: boolean; devCode: string | null }> {
+export function sendOtp(tripId: string, empId: string): Promise<{ sent: boolean }> {
   return apiPost(`/api/driver/trips/${tripId}/send-otp/${empId}`);
 }
 

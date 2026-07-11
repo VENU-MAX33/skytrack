@@ -75,11 +75,14 @@ async function deliverSms(phone: string, code: string): Promise<void> {
 }
 
 /**
- * Creates an OTP record and "delivers" it.
- * Returns the plain code in dev-mode so the caller can push it over WebSocket;
- * returns null in real-SMS mode (the code travels via SMS only).
+ * Creates an OTP record and delivers it.
+ *
+ * The plain code is NEVER returned to callers — it must reach the user only via
+ * SMS (or, in dev mode, the server console log inside deliverSms). Returning it
+ * previously let routes echo it back to the client as `devCode`, which turned
+ * OTP login into a no-op for anyone who knew a registered phone number.
  */
-export async function sendOtp(ctx: OtpContext): Promise<{ code: string | null }> {
+export async function sendOtp(ctx: OtpContext): Promise<void> {
   const since = new Date(Date.now() - OTP_TTL_MS);
   const recentSends = await OTP.countDocuments({
     purpose: ctx.purpose,
@@ -105,7 +108,6 @@ export async function sendOtp(ctx: OtpContext): Promise<{ code: string | null }>
   });
 
   await deliverSms(ctx.phone, code);
-  return { code: env.smsProvider === 'dev' ? code : null };
 }
 
 interface VerifyContext {

@@ -53,5 +53,4 @@ export interface CompanyConfig {
 
 export interface OtpNotification {
   tripId: string;
-  code: string | null;
 }

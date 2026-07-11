@@ -3,7 +3,6 @@ import type { DriverUser, DriverProfile } from './types';
 
 interface OtpResponse {
   sent: boolean;
-  devCode: string | null;
 }
 
 interface LoginResponse {

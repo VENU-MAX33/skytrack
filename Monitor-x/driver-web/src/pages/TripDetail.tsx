@@ -107,8 +107,8 @@ export default function TripDetail() {
   async function handleSendOtp(emp: DriverTripEmployee) {
     setBusy(`send-${emp.id}`);
     try {
-      const { devCode } = await sendOtp(id, emp.id);
-      toast.success(devCode ? `Dev OTP for ${emp.name}: ${devCode}` : `OTP sent to ${emp.name}`);
+      await sendOtp(id, emp.id);
+      toast.success(`OTP sent to ${emp.name}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send OTP');
     } finally {

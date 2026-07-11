@@ -146,8 +146,8 @@ export default function Dashboard() {
           <KeyRound className="text-[#004b87]" />
           <div className="flex-1">
             <div className="text-[12px] text-[#777]">Verification OTP (Trip {otp.tripId})</div>
-            <div className="text-2xl font-bold tracking-[6px] text-[#004b87]">
-              {otp.code ?? 'Check SMS'}
+            <div className="text-[15px] font-semibold text-[#004b87]">
+              Check your SMS for the code
             </div>
           </div>
           <button className="text-[#777] text-[13px]" onClick={clearOtp}>

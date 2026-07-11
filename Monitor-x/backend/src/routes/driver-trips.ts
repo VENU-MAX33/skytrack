@@ -61,16 +61,16 @@ driverTripsRouter.post(
     const emp = findTripEmployee(trip, req.params.empId);
     if (!emp.contact) throw new HttpError(422, 'Employee has no phone number on file');
 
-    const { code } = await sendOtp({
+    await sendOtp({
       purpose: 'pickup',
       phone: emp.contact,
       tripId: trip._id,
       employeeId: emp._id,
       driverId: trip.driverId?._id,
     });
-    // Push to the employee's app (code present only in dev-mode).
-    emitOtpSent(emp._id.toString(), { tripId: trip.tripId, code });
-    res.json({ sent: true, devCode: code });
+    // Tell the employee's app an OTP was sent; the code itself travels by SMS only.
+    emitOtpSent(emp._id.toString(), { tripId: trip.tripId });
+    res.json({ sent: true });
   })
 );
 
