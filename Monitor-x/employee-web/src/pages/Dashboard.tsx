@@ -243,9 +243,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-3">
-              <label className="text-[12px] text-[#555] font-medium">New Address</label>
+              <label htmlFor="loc-new-address" className="text-[12px] text-[#555] font-medium">New Address</label>
               <div className="flex gap-2 mt-1">
                 <input
+                  id="loc-new-address"
                   className="input flex-1 text-[13px]"
                   placeholder="Enter full address"
                   value={reqAddr}
@@ -262,9 +263,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-3">
-              <label className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
+              <label htmlFor="loc-latlong" className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
               <div className="flex gap-2 mt-1">
                 <input
+                  id="loc-latlong"
                   className="input flex-1 text-[13px]"
                   placeholder="Auto-filled after Fetch or GPS"
                   value={reqLatLng}
@@ -282,8 +284,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-4">
-              <label className="text-[12px] text-[#555] font-medium">Note (optional)</label>
+              <label htmlFor="loc-note" className="text-[12px] text-[#555] font-medium">Note (optional)</label>
               <textarea
+                id="loc-note"
                 className="input text-[13px] resize-none mt-1"
                 rows={2}
                 placeholder="e.g. Moved to a new flat nearby"

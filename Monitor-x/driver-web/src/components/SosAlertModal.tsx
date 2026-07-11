@@ -1,4 +1,5 @@
 import { AlertTriangle, Phone } from 'lucide-react';
+import Modal from './Modal';
 import type { SosAlert } from '../api/types';
 
 interface Props {
@@ -13,8 +14,14 @@ export default function SosAlertModal({ alert, onClose }: Props) {
     : null;
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4">
-      <div className="card sos-pulse w-full max-w-[420px] overflow-hidden">
+    <Modal
+      open
+      onClose={onClose}
+      title="SOS emergency alert"
+      role="alertdialog"
+      dismissable={false}
+      panelClassName="card sos-pulse w-full max-w-[420px] overflow-hidden"
+    >
         <div className="bg-[#d32f2f] text-white p-4 flex items-center gap-3">
           <AlertTriangle size={28} />
           <div>
@@ -45,8 +52,7 @@ export default function SosAlertModal({ alert, onClose }: Props) {
             Acknowledge
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

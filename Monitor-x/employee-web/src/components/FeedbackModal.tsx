@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import Modal from './Modal';
 import { submitFeedback } from '../api/feedback';
 import { useToast } from '../context/ToastContext';
 import { useSettingsSheet } from '../context/SettingsSheetContext';
@@ -9,8 +10,6 @@ export default function FeedbackModal() {
   const { feedbackOpen, closeFeedback } = useSettingsSheet();
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  if (!feedbackOpen) return null;
 
   function handleClose() {
     setMessage('');
@@ -33,8 +32,13 @@ export default function FeedbackModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/60" onClick={handleClose}>
-      <div className="card w-full max-w-[480px] rounded-b-none p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+    <Modal
+      open={feedbackOpen}
+      onClose={handleClose}
+      title="Send feedback"
+      align="bottom"
+      panelClassName="card w-full max-w-[480px] rounded-b-none p-5 pb-8"
+    >
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold text-[16px]">Feedback</div>
           <button onClick={handleClose} aria-label="Close" style={{ color: 'var(--text-muted)' }}>
@@ -51,7 +55,6 @@ export default function FeedbackModal() {
           placeholder="Type your feedback…"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          autoFocus
         />
         <div className="flex gap-2">
           <button className="btn btn-outline flex-1" onClick={handleClose}>Cancel</button>
@@ -63,7 +66,6 @@ export default function FeedbackModal() {
             {submitting ? 'Sending…' : 'Submit'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
