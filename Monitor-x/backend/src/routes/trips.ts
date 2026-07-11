@@ -190,6 +190,34 @@ tripsRouter.put(
   })
 );
 
+// PUT /api/trips/:id/escort — set whether a trip has an escort, plus optional name.
+tripsRouter.put(
+  '/:id/escort',
+  asyncHandler(async (req, res) => {
+    const { escort, escortName } = req.body as { escort?: string; escortName?: string };
+    if (escort !== 'Yes' && escort !== 'No') {
+      throw new HttpError(400, "escort must be 'Yes' or 'No'");
+    }
+    const doc = await Trip.findOne({ tripId: req.params.id });
+    if (!doc) throw new HttpError(404, 'Trip not found');
+
+    doc.escort = escort;
+    // No escort -> name is meaningless; store name only when escort is present.
+    doc.escortName = escort === 'Yes' ? (escortName ?? '').trim() : '';
+    await doc.save();
+    await doc.populate(TRIP_POPULATE);
+    const populated = doc as unknown as Populated;
+    const dto = toTripDTO(populated);
+
+    emitTripStatus({
+      trip: dto,
+      driverId: populated.driverId?._id.toString() ?? '',
+      employeeIds: populated.employeeIds.map((e) => e._id.toString()),
+    });
+    res.json(dto);
+  })
+);
+
 tripsRouter.put(
   '/:id/freeze',
   asyncHandler(async (req, res) => {
