@@ -87,16 +87,18 @@ function SosPanel() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [ackBusy, setAckBusy] = useState<string | null>(null);
 
-  // Load initial alerts and config
+  // Load initial alerts and config. The SOS alert number is main-admin only, so
+  // staff accounts skip that fetch (the backend would 403 it anyway).
   useEffect(() => {
     getSosAlerts().then(setAlerts).catch(() => {});
+    if (!isMainAdmin) return;
     getSosConfig()
       .then((c) => {
         setAlertPhone(c.alertPhone);
         setPhoneInput(c.alertPhone);
       })
       .catch(() => {});
-  }, []);
+  }, [isMainAdmin]);
 
   // Prepend real-time alerts received via WebSocket
   useEffect(() => {
@@ -288,31 +290,33 @@ function SosPanel() {
         </div>
       )}
 
-      {/* SMS Alert Phone Config */}
-      <div className="mt-4 pt-4 border-t border-[#eee] flex items-center gap-2 flex-wrap">
-        <div className="text-[12px] text-[#555] font-medium whitespace-nowrap">
-          SOS SMS Alert Number:
+      {/* SMS Alert Phone Config — only the MAIN admin can enter/change this number. */}
+      {isMainAdmin && (
+        <div className="mt-4 pt-4 border-t border-[#eee] flex items-center gap-2 flex-wrap">
+          <div className="text-[12px] text-[#555] font-medium whitespace-nowrap">
+            SOS SMS Alert Number:
+          </div>
+          <input
+            type="tel"
+            className="border border-[#ddd] rounded px-2 py-1 text-[12px] w-[180px] focus:outline-none focus:border-[#D22630]"
+            placeholder="e.g. 9876543210"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+          />
+          {phoneInput !== alertPhone && (
+            <button
+              onClick={handleSavePhone}
+              disabled={savingPhone}
+              className="flex items-center gap-1 text-[12px] px-3 py-1 rounded bg-[#D22630] text-white font-semibold disabled:opacity-50"
+            >
+              <Save size={12} /> {savingPhone ? "Saving…" : "Save"}
+            </button>
+          )}
+          {alertPhone && phoneInput === alertPhone && (
+            <span className="text-[11px] text-[#2e7d32]">✓ Saved — alerts will SMS this number</span>
+          )}
         </div>
-        <input
-          type="tel"
-          className="border border-[#ddd] rounded px-2 py-1 text-[12px] w-[180px] focus:outline-none focus:border-[#D22630]"
-          placeholder="e.g. 9876543210"
-          value={phoneInput}
-          onChange={(e) => setPhoneInput(e.target.value)}
-        />
-        {phoneInput !== alertPhone && (
-          <button
-            onClick={handleSavePhone}
-            disabled={savingPhone}
-            className="flex items-center gap-1 text-[12px] px-3 py-1 rounded bg-[#D22630] text-white font-semibold disabled:opacity-50"
-          >
-            <Save size={12} /> {savingPhone ? "Saving…" : "Save"}
-          </button>
-        )}
-        {alertPhone && phoneInput === alertPhone && (
-          <span className="text-[11px] text-[#2e7d32]">✓ Saved — alerts will SMS this number</span>
-        )}
-      </div>
+      )}
     </div>
   );
 }
