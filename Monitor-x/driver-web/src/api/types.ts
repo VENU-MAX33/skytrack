@@ -20,6 +20,7 @@ export interface DriverTrip {
   date: string;
   shiftTime: string;
   escort: string;
+  escortName: string;
   location: string;
   route: string;
   vehicleNo: string;

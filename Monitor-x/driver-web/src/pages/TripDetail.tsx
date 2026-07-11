@@ -183,6 +183,11 @@ export default function TripDetail() {
           <div className="text-[12px] opacity-90">
             {trip.type} · {trip.route || trip.location} · {trip.shiftTime}
           </div>
+          {trip.escort === 'Yes' && (
+            <div className="text-[12px] font-semibold opacity-95">
+              Escort: Yes{trip.escortName ? ` · ${trip.escortName}` : ''}
+            </div>
+          )}
         </div>
       </header>
 
