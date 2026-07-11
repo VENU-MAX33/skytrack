@@ -4,6 +4,7 @@ import { Trip, type TripDoc } from '../models/Trip.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { Route } from '../models/Route.js';
 import { Employee } from '../models/Employee.js';
+import { Counter } from '../models/Counter.js';
 import { toTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday } from '../lib/statusBuckets.js';
@@ -13,6 +14,26 @@ export const tripsRouter = Router();
 
 const TRIP_POPULATE = 'vehicleId driverId routeId employeeIds';
 type Populated = Parameters<typeof toTripDTO>[0];
+
+// Hands out the next per-day trip id atomically. The counter is seeded once (via
+// $max) from any pre-existing trips for the day — e.g. seeded data created
+// before the counter existed — so it never collides with them; after that a
+// single $inc guarantees distinct ids even under concurrent requests.
+async function nextTripId(date: string): Promise<string> {
+  const prefix = `TRP-${date.replace(/-/g, '').slice(2)}-`;
+  const existing = await Counter.findById(prefix).lean();
+  if (!existing) {
+    const last = await Trip.findOne({ tripId: new RegExp(`^${prefix}`) }).sort({ tripId: -1 });
+    const lastSeq = last ? parseInt(last.tripId.slice(prefix.length), 10) : 0;
+    await Counter.updateOne({ _id: prefix }, { $max: { seq: lastSeq } }, { upsert: true });
+  }
+  const counter = await Counter.findByIdAndUpdate(
+    prefix,
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return `${prefix}${String(counter!.seq).padStart(3, '0')}`;
+}
 
 tripsRouter.get(
   '/',
@@ -86,12 +107,7 @@ tripsRouter.post(
     if (employees.length === 0) throw new HttpError(422, 'Trip needs at least one employee');
 
     const date = body.date ?? localToday();
-    // Next sequence = highest existing sequence for the day + 1 (a plain count
-    // collides with the unique tripId index once any trip of the day is deleted).
-    const prefix = `TRP-${date.replace(/-/g, '').slice(2)}-`;
-    const last = await Trip.findOne({ tripId: new RegExp(`^${prefix}`) }).sort({ tripId: -1 });
-    const lastSeq = last ? parseInt(last.tripId.slice(prefix.length), 10) : 0;
-    const tripId = `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
+    const tripId = await nextTripId(date);
 
     const doc = await Trip.create({
       tripId,

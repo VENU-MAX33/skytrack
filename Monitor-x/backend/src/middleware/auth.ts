@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import { User } from '../models/User.js';
+import { Driver } from '../models/Driver.js';
+import { Employee } from '../models/Employee.js';
 
 export type Role = 'admin' | 'driver' | 'employee' | 'staff';
 
@@ -39,24 +42,54 @@ export function signToken(
   return jwt.sign(payload, env.jwtSecret, { expiresIn });
 }
 
-// Verifies the JWT and attaches the decoded payload to req.auth.
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+// Re-validates the token's subject against the database so a 30-day token stops
+// working the moment the account is deleted, deactivated, or (for admins/staff)
+// has its role changed. Without this, deactivating a user only blocks new logins.
+async function principalIsValid(payload: AuthPayload): Promise<boolean> {
+  switch (payload.role) {
+    case 'admin':
+    case 'staff': {
+      const user = await User.findById(payload.sub).select('role').lean();
+      return !!user && user.role === payload.role;
+    }
+    case 'driver': {
+      const driver = await Driver.findById(payload.sub).select('active').lean();
+      return !!driver && driver.active === 'Yes';
+    }
+    case 'employee': {
+      const employee = await Employee.findById(payload.sub).select('active').lean();
+      return !!employee && employee.active === 'Yes';
+    }
+    default:
+      return false;
+  }
+}
+
+// Verifies the JWT, confirms the account is still valid, and attaches the
+// decoded payload to req.auth.
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = readToken(req);
   if (!token) {
     res.status(401).json({ error: 'Missing Authorization header' });
     return;
   }
   try {
-    req.auth = verifyToken(token);
+    const payload = verifyToken(token);
+    if (!(await principalIsValid(payload))) {
+      res.status(401).json({ error: 'Account is no longer active' });
+      return;
+    }
+    req.auth = payload;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-// Verifies the JWT AND enforces that the caller has one of the allowed roles.
+// Verifies the JWT, confirms the account is still valid, AND enforces that the
+// caller has one of the allowed roles.
 export function requireRole(...roles: Role[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const token = readToken(req);
     if (!token) {
       res.status(401).json({ error: 'Missing Authorization header' });
@@ -66,6 +99,10 @@ export function requireRole(...roles: Role[]) {
       const payload = verifyToken(token);
       if (!roles.includes(payload.role)) {
         res.status(403).json({ error: 'Forbidden: insufficient role' });
+        return;
+      }
+      if (!(await principalIsValid(payload))) {
+        res.status(401).json({ error: 'Account is no longer active' });
         return;
       }
       req.auth = payload;

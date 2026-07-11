@@ -7,9 +7,22 @@ import type { Employee as EmployeeDTO } from '../types/dto.js';
 
 export const employeesRouter = Router();
 
+// Only these fields may be set through the API. Anything else the client sends
+// (notably passwordHash, managed by the employee's own login flow) is dropped,
+// so create/update cannot be used to inject it.
+const EMPLOYEE_FIELDS = [
+  'name', 'gender', 'contact', 'email', 'transportType', 'transportMode', 'distance',
+  'address', 'location', 'nodalPoint', 'manager', 'pinCode', 'shiftLogin', 'shiftLogout',
+  'fixedShift', 'latLong', 'team', 'specialNeed', 'route', 'active',
+] as const;
+
 function fromDTO(body: Partial<EmployeeDTO>): Record<string, unknown> {
-  const { id, ...rest } = body;
-  return id !== undefined ? { ...rest, empId: id } : { ...rest };
+  const out: Record<string, unknown> = {};
+  for (const key of EMPLOYEE_FIELDS) {
+    if (body[key] !== undefined) out[key] = body[key];
+  }
+  if (body.id !== undefined) out.empId = body.id;
+  return out;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
