@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3X3, MapPin, Minimize2, Trash2, FileText, Download, Upload, Save, Building2, ChevronLeft } from "lucide-react";
+import { Grid3X3, Save, Building2, ChevronLeft } from "lucide-react";
 import {
   MapContainer, TileLayer, CircleMarker, Marker, Polyline,
   Tooltip, Popup, useMap,
@@ -85,7 +85,6 @@ export default function MasterRouting() {
   const [company, setCompany] = useState<CompanyConfig | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState("cab");
   const [selectedRoutes, setSelectedRoutes] = useState<Set<number>>(new Set());
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [roadPaths, setRoadPaths] = useState<Record<number, LatLng[]>>({});
@@ -215,23 +214,6 @@ export default function MasterRouting() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSelectedView(selectedView === "cab" ? "bus" : "cab")}
-            className={`px-4 py-2 rounded text-[13px] font-medium transition-colors ${
-              selectedView === "cab" ? "bg-[#0047B2] text-white" : "bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9]"
-            }`}
-          >
-            Cab
-          </button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><MapPin className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Minimize2 className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Trash2 className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><FileText className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Download className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-[#F5F6FA] rounded text-[#595959]"><Upload className="w-4 h-4" /></button>
-          <button className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors">
-            Auto Generate
-          </button>
           <button
             onClick={handleSaveToRostering}
             className="bg-[#0047B2] text-white px-4 py-2 rounded text-[13px] hover:bg-[#003a94] transition-colors flex items-center gap-2"
