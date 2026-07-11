@@ -182,6 +182,19 @@ export interface SosAlert {
   driver: { name: string; contact: string } | null;
 }
 
+export interface EscortReportDTO {
+  id: string;
+  status: string; // 'open' | 'acknowledged'
+  present: string; // 'Yes' | 'No'
+  escortName: string;
+  createdAt: string;
+  acknowledgedBy: string;
+  acknowledgedAt: string | null;
+  tripId: string | null;
+  employee: { id: string; name: string; contact: string };
+  driver: { name: string; contact: string } | null;
+}
+
 export interface RosterEntry {
   id: string;
   name: string;

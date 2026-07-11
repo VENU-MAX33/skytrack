@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 
-export type NotificationType = 'sos' | 'location-request' | 'employee-location' | 'feedback' | 'info';
+export type NotificationType = 'sos' | 'location-request' | 'employee-location' | 'feedback' | 'escort' | 'info';
 
 export interface NotificationDoc {
   type: NotificationType;

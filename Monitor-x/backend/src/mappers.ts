@@ -10,6 +10,7 @@ import type {
   DriverTrip,
   EmployeeTrip,
   SosAlert,
+  EscortReportDTO,
   LocationRequestDTO,
   EmployeeDocumentDTO,
   TripReportRow,
@@ -22,6 +23,7 @@ import type { RouteDoc } from './models/Route.js';
 import type { TripDoc } from './models/Trip.js';
 import type { RosterDoc } from './models/Roster.js';
 import type { SOSAlertDoc } from './models/SOSAlert.js';
+import type { EscortReportDoc } from './models/EscortReport.js';
 import type { LocationRequestDoc } from './models/LocationRequest.js';
 import type { EmployeeDocumentDoc } from './models/EmployeeDocument.js';
 import type { FeedbackDoc } from './models/Feedback.js';
@@ -259,6 +261,32 @@ export function toSosDTO(doc: PopulatedSos): SosAlert {
     location: doc.location,
     reason: doc.reason ?? '',
     photoBase64: doc.photoBase64 ?? '',
+    createdAt: doc.createdAt.toISOString(),
+    acknowledgedBy: doc.acknowledgedBy ?? '',
+    acknowledgedAt: doc.acknowledgedAt ? doc.acknowledgedAt.toISOString() : null,
+    tripId: doc.tripId?.tripId ?? null,
+    employee: {
+      id: doc.employeeId?.empId ?? '',
+      name: doc.employeeId?.name ?? '',
+      contact: doc.employeeId?.contact ?? '',
+    },
+    driver: doc.driverId ? { name: doc.driverId.name, contact: doc.driverId.contact } : null,
+  };
+}
+
+type PopulatedEscortReport = Omit<HydratedDocument<EscortReportDoc>, 'employeeId' | 'driverId' | 'tripId'> & {
+  employeeId: HydratedDocument<EmployeeDoc> | null;
+  driverId: HydratedDocument<DriverDoc> | null;
+  tripId: HydratedDocument<TripDoc> | null;
+  createdAt: Date;
+};
+
+export function toEscortReportDTO(doc: PopulatedEscortReport): EscortReportDTO {
+  return {
+    id: doc._id.toString(),
+    status: doc.status,
+    present: doc.present,
+    escortName: doc.escortName ?? '',
     createdAt: doc.createdAt.toISOString(),
     acknowledgedBy: doc.acknowledgedBy ?? '',
     acknowledgedAt: doc.acknowledgedAt ? doc.acknowledgedAt.toISOString() : null,

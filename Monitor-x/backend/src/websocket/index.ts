@@ -100,6 +100,19 @@ export function emitSosAck(payload: { alert: unknown; driverId?: string }): void
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('sos:acknowledged', payload.alert);
 }
 
+/** Broadcast an employee's escort report to admins and the assigned driver. */
+export function emitEscortReport(payload: { report: unknown; driverId?: string }): void {
+  const i = getIo();
+  i.to(rooms.admin).emit('escort:report', payload.report);
+  if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('escort:report', payload.report);
+}
+
+export function emitEscortReportAck(payload: { report: unknown; driverId?: string }): void {
+  const i = getIo();
+  i.to(rooms.admin).emit('escort:report:acknowledged', payload.report);
+  if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('escort:report:acknowledged', payload.report);
+}
+
 /** Broadcast an employee's live GPS location to their trip's driver and to admins. */
 export function emitEmployeeLocation(payload: {
   employeeMongoId: string;
