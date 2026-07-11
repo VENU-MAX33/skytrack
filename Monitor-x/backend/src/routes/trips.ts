@@ -61,16 +61,26 @@ tripsRouter.get(
       const bucket = STATUS_BUCKETS[status];
       query.status = bucket ? { $in: bucket } : status;
     }
-
-    let docs = await Trip.find(query).sort({ date: -1, shiftTime: 1 }).populate(TRIP_POPULATE);
     if (search) {
-      const s = search.toLowerCase();
-      docs = docs.filter((d) => {
-        const dto = toTripDTO(d as unknown as Populated);
-        return [dto.id, dto.vehicleNo, dto.vendor, dto.location, dto.status]
-          .some((v) => v.toLowerCase().includes(s));
-      });
+      // Search in the DB (was an in-memory scan over the whole collection).
+      // vehicleNo lives on the populated Vehicle, so resolve matching ids first.
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const vehicleIds = (await Vehicle.find({ rtoNo: rx }).select('_id')).map((v) => v._id);
+      query.$or = [
+        { tripId: rx },
+        { vendor: rx },
+        { location: rx },
+        { status: rx },
+        ...(vehicleIds.length ? [{ vehicleId: { $in: vehicleIds } }] : []),
+      ];
     }
+
+    // Cap the result set so an unfiltered view of a large, ever-growing trips
+    // collection can't load unbounded data; the newest trips are returned first.
+    const docs = await Trip.find(query)
+      .sort({ date: -1, shiftTime: 1 })
+      .limit(2000)
+      .populate(TRIP_POPULATE);
     res.json(docs.map((d) => toTripDTO(d as unknown as Populated)));
   })
 );
