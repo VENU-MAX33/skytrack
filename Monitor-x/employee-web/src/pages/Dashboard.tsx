@@ -135,12 +135,6 @@ export default function Dashboard() {
         <div className="text-[13px] text-[#595959]">{user?.id}</div>
       </div>
 
-      <div className="flex flex-wrap gap-2 justify-center px-4">
-        <span className="pill">ETC Code: ----</span>
-        <span className="pill">Show QR Code</span>
-        <span className="pill">Scan QR Code</span>
-      </div>
-
       {/* OTP notification from the driver */}
       {otp && (
         <div className="mx-4 mt-4 card border-l-4 border-l-[#004b87] p-4 flex items-center gap-3">

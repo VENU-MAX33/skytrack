@@ -38,6 +38,17 @@ export default function Modal({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Keep the latest callbacks in refs so the focus effect below can depend on
+  // `open` alone. Depending on `onClose`/`dismissable` (which callers recreate
+  // every render) re-ran the effect on every keystroke, stealing focus from the
+  // active input back to the dialog's first focusable element.
+  const onCloseRef = useRef(onClose);
+  const dismissableRef = useRef(dismissable);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    dismissableRef.current = dismissable;
+  });
+
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
@@ -47,9 +58,9 @@ export default function Modal({
     function onKeyDown(e: KeyboardEvent) {
       if (!panel) return;
       if (!panel.contains(document.activeElement) && document.activeElement !== panel) return;
-      if (e.key === 'Escape' && dismissable) {
+      if (e.key === 'Escape' && dismissableRef.current) {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -78,7 +89,7 @@ export default function Modal({
       document.removeEventListener('keydown', onKeyDown, true);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose, dismissable]);
+  }, [open]);
 
   if (!open) return null;
 
