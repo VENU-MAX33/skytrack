@@ -1,17 +1,8 @@
 import type { Route, CompanyConfig } from './types';
-import { apiGet, apiPost, apiPut, apiDelete, ApiError } from './client';
+import { apiGet, apiPost, apiPut, apiDelete } from './client';
 
 export async function getRoutes(): Promise<Route[]> {
   return apiGet<Route[]>('/api/routes');
-}
-
-export async function getRoute(id: number): Promise<Route | undefined> {
-  try {
-    return await apiGet<Route>(`/api/routes/${id}`);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return undefined;
-    throw err;
-  }
 }
 
 export async function createRoute(data: Omit<Route, 'id' | 'count'>): Promise<Route> {

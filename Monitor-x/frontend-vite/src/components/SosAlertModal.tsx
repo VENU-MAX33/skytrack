@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, Phone, MapPin, Image } from 'lucide-react';
-import { acknowledgeSos, type SosAlert } from '../api/sos';
+import { acknowledgeSos } from '../api/sos';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 

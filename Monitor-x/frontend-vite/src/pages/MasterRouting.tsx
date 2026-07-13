@@ -143,11 +143,6 @@ export default function MasterRouting() {
     return () => { cancelled = true; };
   }, [selectedEmployees, employees, routes]);
 
-  // All visible employee points (either selected route or all routes with coords)
-  const visibleEmpPoints: [number, number][] = (selectedRoute ? routeEmployees : employees)
-    .map((e) => parseLatLng(e.latLong))
-    .filter((p): p is [number, number] => p !== null);
-
   const companyPt = company ? ([company.lat, company.lng] as [number, number]) : null;
 
   // For FitAll: company + all visible employee points + all route dest points

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Calendar, Search, X, Check, MoreVertical } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Users, Search, X } from "lucide-react";
 import { getEmployees, getRosters, saveRosters, deleteRosters } from "../api";
 import type { Employee, RosterEntry } from "../api";
 import { useToast } from "../context/ToastContext";
@@ -14,10 +14,6 @@ interface RosterConfig {
   dropTiming?: string; // for drop
   rosterType: string;
 }
-
-const ROUTE_COLORS: Record<string, string> = {
-  Blue: "#0047B2", Green: "#18751C", Red: "#D22630", Yellow: "#E6A817",
-};
 
 const todayStr = localToday;
 
@@ -34,7 +30,6 @@ function formatDateDisplay(dateStr: string) {
 }
 
 export default function Rostering() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
 
@@ -43,7 +38,7 @@ export default function Rostering() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "");
+  const [statusFilter] = useState(() => searchParams.get("status") ?? "");
 
   // rosterConfigs: empId -> date -> RosterConfig
   const [rosterConfigs, setRosterConfigs] = useState<Record<string, Record<string, RosterConfig>>>({});
@@ -54,7 +49,7 @@ export default function Rostering() {
   const [fromDate, setFromDate] = useState(() => searchParams.get("date") ?? todayStr());
   const [toDate, setToDate] = useState(() => addDays(searchParams.get("date") ?? todayStr(), 7));
   const [teamFilter, setTeamFilter] = useState("All");
-  const [rosterType, setRosterType] = useState("normal");
+  const [rosterType] = useState("normal");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMode, setShowMode] = useState<"all" | "selected">("all");
 
@@ -239,7 +234,8 @@ export default function Rostering() {
             payloads.push({ empId, date, tripType: "pickup", timing: cfg.timing, rosterType: cfg.rosterType, status: "pending" });
           }
           if (cfg.tripType === "drop" || cfg.tripType === "both") {
-            payloads.push({ empId, date, tripType: "drop", timing: cfg.tripType === "both" ? cfg.dropTiming : cfg.timing, rosterType: cfg.rosterType, status: "pending" });
+            // Drop leg always uses the logout field (dropTiming); cfg.timing is the login time.
+            payloads.push({ empId, date, tripType: "drop", timing: cfg.dropTiming ?? cfg.timing, rosterType: cfg.rosterType, status: "pending" });
           }
         }
       }
@@ -336,19 +332,23 @@ export default function Rostering() {
 
                   if (cfg) {
                     if (cfg.tripType === "both") display = `${cfg.timing} | ${cfg.dropTiming}`;
+                    else if (cfg.tripType === "drop") display = cfg.dropTiming ?? cfg.timing;
                     else display = cfg.timing;
                     bgColor = "#E8F4FD"; // Unsaved config
                   } else if (saved && saved.length > 0) {
-                    const pickups = saved.filter((s) => s.tripType === 'pickup');
-                    const drops = saved.filter((s) => s.tripType === 'drop');
+                    // Only a leg with an actual time counts as a real shift. This drops the
+                    // empty-timing "pickup" that Master Routing creates, so login no longer
+                    // shows unless a login time was really set here.
+                    const pickups = saved.filter((s) => s.tripType === 'pickup' && s.shiftTime);
+                    const drops = saved.filter((s) => s.tripType === 'drop' && s.shiftTime);
                     if (pickups.length && drops.length) {
-                      display = `${pickups[0].shiftTime || 'Login'} | ${drops[0].shiftTime || 'Logout'}`;
+                      display = `${pickups[0].shiftTime} | ${drops[0].shiftTime}`;
                     } else if (pickups.length) {
-                      display = pickups[0].shiftTime || 'Login';
+                      display = pickups[0].shiftTime;
                     } else if (drops.length) {
-                      display = drops[0].shiftTime || 'Logout';
+                      display = drops[0].shiftTime;
                     }
-                    bgColor = "#F4F0FF"; // Saved
+                    if (display) bgColor = "#F4F0FF"; // Saved
                   }
 
                   return (
@@ -356,7 +356,7 @@ export default function Rostering() {
                       key={date} 
                       className="p-1 border-l border-[#E0E4E9] cursor-context-menu relative"
                       onContextMenu={(e) => handleContextMenu(e, emp.id, date)}
-                      onClick={(e) => {
+                      onClick={() => {
                         // Allow click to also open the context menu or modal
                         // Let's just open modal on left click if empty, or context menu
                         setTimingModal({ empId: emp.id, date });
