@@ -12,15 +12,37 @@ function required(name: string): string {
 }
 
 // Allow a single CORS_ORIGIN (legacy) or a comma-separated CORS_ORIGINS list.
-// Defaults cover admin (5173), driver-web (5174) and employee-web (5175) dev servers.
+// Defaults cover admin (5173), driver-web (5174) and employee-web (5175) dev servers
+// on both standard loopback hostnames. Opening Vite at 127.0.0.1 while its API URL
+// uses localhost is otherwise a browser-level CORS failure that surfaces as
+// "Failed to fetch".
 const corsOrigins = (
   process.env.CORS_ORIGINS ??
   process.env.CORS_ORIGIN ??
-  'http://localhost:5173,http://localhost:5174,http://localhost:5175'
+  'http://localhost:5173,http://localhost:5174,http://localhost:5175,' +
+    'http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175'
 )
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
+
+/**
+ * Vite picks the next free port when one of the usual dev ports is occupied.
+ * Accept any loopback port while developing so a browser request does not fail
+ * merely because, for example, the admin app started on :5176 instead of :5173.
+ * Production remains restricted to the explicitly configured origin list.
+ */
+export function isCorsOriginAllowed(origin: string | undefined): boolean {
+  if (!origin || corsOrigins.includes(origin)) return true;
+  if (process.env.NODE_ENV === 'production') return false;
+
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 // Fail closed: production must use a real SMS provider. 'dev' mode sends no SMS
 // (it only logs the code server-side), so silently running it in production

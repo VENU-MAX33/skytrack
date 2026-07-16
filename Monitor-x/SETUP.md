@@ -31,7 +31,7 @@ New optional variables (sensible defaults shown):
 
 | Var | Default | Purpose |
 |---|---|---|
-| `CORS_ORIGINS` | `http://localhost:5173,5174,5175` | Comma-separated allowed origins (REST + WS). Falls back to legacy `CORS_ORIGIN`. |
+| `CORS_ORIGINS` | `http://localhost:5173,5174,5175,127.0.0.1:5173,5174,5175` | Comma-separated production origins (REST + WS). Falls back to legacy `CORS_ORIGIN`; in development, any `localhost`/`127.0.0.1` Vite port is accepted. |
 | `DEFAULT_EMPLOYEE_PASSWORD` | `monitorx@123` | Shared password seeded for every employee. |
 | `SMS_PROVIDER` | `dev` | `dev` logs OTPs to the backend console. Set `fast2sms` to deliver real OTP SMS. |
 | `FAST2SMS_API_KEY` | — | Required only when `SMS_PROVIDER=fast2sms`. Keep it in `backend/.env`; never expose it to a frontend. |

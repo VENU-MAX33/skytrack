@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'http';
 import { Server as IOServer, type Socket } from 'socket.io';
-import { env } from '../config/env.js';
+import { isCorsOriginAllowed } from '../config/env.js';
 import { verifyToken } from '../middleware/auth.js';
 
 let io: IOServer | null = null;
@@ -13,7 +13,10 @@ export const rooms = {
 
 export function initSocket(httpServer: HttpServer): IOServer {
   io = new IOServer(httpServer, {
-    cors: { origin: env.corsOrigins, methods: ['GET', 'POST'] },
+    cors: {
+      origin: (origin, callback) => callback(null, isCorsOriginAllowed(origin)),
+      methods: ['GET', 'POST'],
+    },
   });
 
   // Authenticate every socket using the same JWT as the REST API.

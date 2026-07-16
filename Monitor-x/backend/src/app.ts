@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { env } from './config/env.js';
+import { env, isCorsOriginAllowed } from './config/env.js';
 import { requireRole } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { authRouter } from './routes/auth.js';
@@ -68,7 +68,7 @@ export function createApp(): Express {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: env.corsOrigins }));
+  app.use(cors({ origin: (origin, callback) => callback(null, isCorsOriginAllowed(origin)) }));
   // 5 MB: company logo + employee document uploads travel as base64 JSON.
   app.use(express.json({ limit: '5mb' }));
 
