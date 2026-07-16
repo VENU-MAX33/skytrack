@@ -21,7 +21,6 @@ import DriverManagement from "./pages/DriverManagement";
 import DriverForm from "./pages/DriverForm";
 import VehicleTracking from "./pages/VehicleTracking";
 import RouteManagement from "./pages/RouteManagement";
-import LocationRequests from "./pages/LocationRequests";
 import Reports from "./pages/Reports";
 import StaffManagement from "./pages/StaffManagement";
 import Feedback from "./pages/Feedback";
@@ -58,7 +57,6 @@ function App() {
               <Route path="/driver-management/add" element={<DriverForm />} />
               <Route path="/driver-management/edit/:id" element={<DriverForm />} />
               <Route path="/vehicle-tracking" element={<VehicleTracking />} />
-              <Route path="/location-requests" element={<LocationRequests />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/staff-management" element={<StaffManagement />} />
               <Route path="/feedback" element={<Feedback />} />

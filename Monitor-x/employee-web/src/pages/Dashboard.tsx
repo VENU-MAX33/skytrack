@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, Car, CarFront, Phone, Share2, KeyRound, CheckCircle2, MapPin, Loader2, Navigation, X } from 'lucide-react';
-import { getEmployeeTrips, shareLocation, submitLocationRequest } from '../api/trips';
+import { Menu, Car, CarFront, Phone, Share2, KeyRound, CheckCircle2, MapPin, Loader2 } from 'lucide-react';
+import { getEmployeeTrips, shareLocation } from '../api/trips';
 import type { EmployeeTrip } from '../api/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -11,6 +11,13 @@ import EscortButton from '../components/EscortButton';
 
 const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
 
+function formatTripTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const toast = useToast();
@@ -18,12 +25,6 @@ export default function Dashboard() {
   const { openSheet } = useSettingsSheet();
   const [trips, setTrips] = useState<EmployeeTrip[]>([]);
   const [sharing, setSharing] = useState(false);
-  const [showLocModal, setShowLocModal] = useState(false);
-  const [reqAddr, setReqAddr] = useState('');
-  const [reqLatLng, setReqLatLng] = useState('');
-  const [reqNote, setReqNote] = useState('');
-  const [fetchingAddr, setFetchingAddr] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
     getEmployeeTrips()
@@ -36,10 +37,11 @@ export default function Dashboard() {
     const offFrozen = on('trip:frozen', load);
     const offStatus = on('trip:status', load);
     const offVerified = on('employee:verified', load);
-    const offLocApproved = on('location:request:approved', () => {
-      toast.success('Your location has been updated by admin!');
+    const offSchedule = on('trip:schedule', () => {
+      load();
+      toast.success('Driver arrival time updated');
     });
-    return () => { offFrozen(); offStatus(); offVerified(); offLocApproved(); };
+    return () => { offFrozen(); offStatus(); offVerified(); offSchedule(); };
   }, [on, load, toast]);
 
   const current = trips.find((t) => ONGOING.includes(t.status)) ?? trips[0] ?? null;
@@ -67,56 +69,6 @@ export default function Dashboard() {
       toast.error('Could not get location — check GPS permissions');
     } finally {
       setSharing(false);
-    }
-  }
-
-  async function fetchAddrLatLng() {
-    if (!reqAddr.trim()) { toast.error('Enter an address first'); return; }
-    setFetchingAddr(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(reqAddr)}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'MonitorX-TMS/1.0' } });
-      const data = await res.json() as Array<{ lat: string; lon: string }>;
-      if (data.length > 0) {
-        setReqLatLng(`${parseFloat(data[0].lat)},${parseFloat(data[0].lon)}`);
-        toast.success('Location fetched');
-      } else {
-        toast.error('Could not find address — try a more specific one');
-      }
-    } catch {
-      toast.error('Geocoding failed — check network');
-    } finally {
-      setFetchingAddr(false);
-    }
-  }
-
-  async function useCurrentGps() {
-    setFetchingAddr(true);
-    try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) =>
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
-      );
-      setReqLatLng(`${pos.coords.latitude},${pos.coords.longitude}`);
-      toast.success('GPS location captured');
-    } catch {
-      toast.error('Could not get GPS — check permissions');
-    } finally {
-      setFetchingAddr(false);
-    }
-  }
-
-  async function handleSubmitRequest() {
-    if (!reqLatLng.trim()) { toast.error('Fetch or capture your location first'); return; }
-    setSubmitting(true);
-    try {
-      await submitLocationRequest({ requestedAddress: reqAddr, requestedLatLong: reqLatLng, note: reqNote });
-      toast.success('Location update request submitted');
-      setShowLocModal(false);
-      setReqAddr(''); setReqLatLng(''); setReqNote('');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not submit request');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -167,6 +119,22 @@ export default function Dashboard() {
             )}
           </div>
 
+          {current.schedule && (
+            <div className="card p-4 border-l-4 border-l-[#004b87]">
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <MapPin size={18} className="text-[#004b87]" /> Your Scheduled Time
+              </div>
+              <Row label="Driver starts by" value={formatTripTime(current.schedule.driverReportAt)} />
+              <Row
+                label={current.type === 'Drop' ? 'Expected drop' : 'Driver reaches you'}
+                value={formatTripTime(current.schedule.stops[0]?.liveEtaAt ?? current.schedule.stops[0]?.plannedAt)}
+                valueClass="text-[#004b87]"
+              />
+              <Row label={current.type === 'Drop' ? 'Route starts' : 'Expected office arrival'} value={formatTripTime(current.type === 'Drop' ? current.schedule.scheduledStartAt : current.schedule.scheduledEndAt)} />
+              {current.schedule.etaUpdatedAt && <div className="text-[10px] text-[#848484] text-right mt-2">ETA updated {formatTripTime(current.schedule.etaUpdatedAt)}</div>}
+            </div>
+          )}
+
           <div className="card p-4">
             <div className="flex items-center gap-2 font-semibold mb-2">
               <CarFront size={18} className="text-[#004b87]" /> Vehicle & Driver
@@ -200,114 +168,17 @@ export default function Dashboard() {
             <button className="btn btn-blue w-full" onClick={share}>
               <Share2 size={18} /> Share trip link with family
             </button>
-            {/* Request permanent location update */}
-            <button
-              className="btn btn-outline w-full"
-              onClick={() => setShowLocModal(true)}
-            >
-              <Navigation size={18} /> Request Location Update
-            </button>
           </div>
         </div>
       ) : (
         <div className="px-4 mt-4 space-y-3">
           <div className="text-center text-[#999] text-[14px] py-6">No assigned trip yet</div>
-          <button
-            className="btn btn-outline w-full"
-            onClick={() => setShowLocModal(true)}
-          >
-            <Navigation size={18} /> Request Location Update
-          </button>
         </div>
       )}
 
       <EscortButton tripId={current?.id} />
       <SosButton tripId={current?.id} />
 
-      {/* Location Update Request Modal */}
-      {showLocModal && (
-        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/60">
-          <div className="card w-full max-w-[480px] rounded-b-none p-5 pb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-bold text-[16px]">Request Location Update</div>
-              <button onClick={() => setShowLocModal(false)} className="text-[#595959]">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="text-[12px] text-[#595959] mb-3">
-              Submit a request to update your registered pickup address. Admin will review and approve.
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="loc-new-address" className="text-[12px] text-[#555] font-medium">New Address</label>
-              <div className="flex gap-2 mt-1">
-                <input
-                  id="loc-new-address"
-                  className="input flex-1 text-[13px]"
-                  placeholder="Enter full address"
-                  value={reqAddr}
-                  onChange={(e) => setReqAddr(e.target.value)}
-                />
-                <button
-                  className="btn btn-outline !min-h-[40px] !px-3 text-[12px] shrink-0"
-                  onClick={fetchAddrLatLng}
-                  disabled={fetchingAddr}
-                >
-                  {fetchingAddr ? <Loader2 size={14} className="animate-spin" /> : 'Fetch'}
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="loc-latlong" className="text-[12px] text-[#555] font-medium">Latitude / Longitude</label>
-              <div className="flex gap-2 mt-1">
-                <input
-                  id="loc-latlong"
-                  className="input flex-1 text-[13px]"
-                  placeholder="Auto-filled after Fetch or GPS"
-                  value={reqLatLng}
-                  onChange={(e) => setReqLatLng(e.target.value)}
-                  readOnly
-                />
-                <button
-                  className="btn btn-outline !min-h-[40px] !px-3 text-[12px] shrink-0"
-                  onClick={useCurrentGps}
-                  disabled={fetchingAddr}
-                >
-                  {fetchingAddr ? <Loader2 size={14} className="animate-spin" /> : <><MapPin size={14} /> GPS</>}
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="loc-note" className="text-[12px] text-[#555] font-medium">Note (optional)</label>
-              <textarea
-                id="loc-note"
-                className="input text-[13px] resize-none mt-1"
-                rows={2}
-                placeholder="e.g. Moved to a new flat nearby"
-                value={reqNote}
-                onChange={(e) => setReqNote(e.target.value)}
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button className="btn btn-outline flex-1" onClick={() => setShowLocModal(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn flex-1 text-white"
-                style={{ background: '#0047B2' }}
-                onClick={handleSubmitRequest}
-                disabled={submitting || !reqLatLng.trim()}
-              >
-                {submitting ? 'Submitting…' : 'Submit Request'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

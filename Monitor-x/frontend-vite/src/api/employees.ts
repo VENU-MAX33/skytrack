@@ -29,3 +29,13 @@ export async function deleteEmployee(id: string): Promise<void> {
 export async function setEmployeeActive(id: string, active: boolean): Promise<void> {
   await apiPut(`/api/employees/${encodeURIComponent(id)}/active`, { active });
 }
+
+export interface BulkImportResult {
+  created: number;
+  failed: number;
+  errors: { row: number; reasons: string[] }[];
+}
+
+export async function importEmployees(employees: Partial<Employee>[]): Promise<BulkImportResult> {
+  return apiPost<BulkImportResult>('/api/employees/bulk', { employees });
+}

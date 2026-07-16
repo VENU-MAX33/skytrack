@@ -33,3 +33,13 @@ export async function deleteVehicle(rtoNo: string): Promise<void> {
 export async function setVehicleActive(rtoNo: string, active: boolean): Promise<void> {
   await apiPut(`/api/vehicles/${encodeURIComponent(rtoNo)}/active`, { active });
 }
+
+export interface VehicleImportResult {
+  created: number;
+  failed: number;
+  errors: { row: number; reasons: string[] }[];
+}
+
+export async function importVehicles(vehicles: Partial<Vehicle>[]): Promise<VehicleImportResult> {
+  return apiPost<VehicleImportResult>('/api/vehicles/bulk', { vehicles });
+}

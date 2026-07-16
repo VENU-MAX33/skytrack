@@ -1,10 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
-import { Car, Plus, Search, Download, Upload, Edit, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Car, Plus, Search, Download, Upload, Edit, Trash2, FileSpreadsheet } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getVehicles, deleteVehicle } from "../api";
-import type { Vehicle } from "../api";
+import { getVehicles, deleteVehicle, getDrivers, importVehicles } from "../api";
+import type { Driver, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
+import ImportPreviewModal from "../components/ImportPreviewModal";
 import { exportToCsv } from "../lib/exportCsv";
+import { downloadTemplate, parseExcel, type ExcelRow } from "../lib/excel";
+import { IMPORT_ALIASES, VEHICLE_EXAMPLE, VEHICLE_HEADERS, bulkErrorsFromApi, rowErrors, vehicleFromRow } from "../lib/importSchemas";
 import { useToast } from "../context/ToastContext";
 import { useVendors } from "../hooks/useVendors";
 
@@ -15,14 +18,25 @@ export default function VehicleManagement() {
   const [searchParams] = useSearchParams();
   const toast = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [vendorFilter, setVendorFilter] = useState(() => searchParams.get("vendor") ?? "All");
   const [typeFilter, setTypeFilter] = useState(() => searchParams.get("type") ?? "All");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [importRows, setImportRows] = useState<ExcelRow[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [serverImportErrors, setServerImportErrors] = useState<Record<number, string[]>>({});
+  const importRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { getVehicles().then(setVehicles); }, []);
+  useEffect(() => {
+    Promise.all([getVehicles(), getDrivers()]).then(([vehicleData, driverData]) => {
+      setVehicles(vehicleData);
+      setDrivers(driverData);
+    }).catch((error: Error) => toast.error(error.message));
+  }, [toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -86,6 +100,50 @@ export default function VehicleManagement() {
     else toast.error(`Deleted ${deleted.size}, failed ${failed.length} — failed rows stay selected`);
   }
 
+  async function handleUploadFile(file: File) {
+    try {
+      const rows = await parseExcel(file, { aliases: IMPORT_ALIASES });
+      if (rows.length === 0) { toast.error('No data rows found. Download the Vehicle template and add rows below its header.'); return; }
+      setImportRows(rows);
+      setServerImportErrors({});
+      setShowImportModal(true);
+    } catch (error) {
+      toast.error(`Failed to read vehicles: ${(error as Error).message}`);
+    }
+  }
+
+  const importErrors = useMemo(() => {
+    const existingRtos = new Set(vehicles.map((vehicle) => vehicle.rtoNo.toLowerCase()));
+    const driverNames = new Set(drivers.map((driver) => driver.name.toLowerCase()));
+    const localErrors = rowErrors(importRows, (row, index) => {
+      const vehicle = vehicleFromRow(row, vendors[0] ?? '');
+      const errors: string[] = [];
+      if (!vehicle.rtoNo) errors.push('Vehicle RTO No is required');
+      if (!vehicle.driver) errors.push('Driver is required');
+      if (vehicle.rtoNo && existingRtos.has(vehicle.rtoNo.toLowerCase())) errors.push('Vehicle already exists');
+      if (vehicle.driver && !driverNames.has(vehicle.driver.toLowerCase())) errors.push(`Unknown driver: ${vehicle.driver}`);
+      if (vehicle.rtoNo && importRows.slice(0, index).some((item) => vehicleFromRow(item).rtoNo.toLowerCase() === vehicle.rtoNo.toLowerCase())) errors.push('Duplicate vehicle in file');
+      return errors;
+    });
+    return Object.fromEntries(importRows.map((_, index) => [index, [...(localErrors[index] ?? []), ...(serverImportErrors[index] ?? [])]]));
+  }, [drivers, importRows, serverImportErrors, vehicles, vendors]);
+
+  async function handleConfirmImport() {
+    setImporting(true);
+    try {
+      const result = await importVehicles(importRows.map((row) => vehicleFromRow(row, vendors[0] ?? '')));
+      setShowImportModal(false);
+      setImportRows([]);
+      toast.success(`${result.created} vehicles imported successfully`);
+      setVehicles(await getVehicles());
+    } catch (error) {
+      setServerImportErrors(bulkErrorsFromApi(error));
+      toast.error(`Vehicle import failed: ${(error as Error).message}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <>
       {/* Page Header */}
@@ -107,15 +165,22 @@ export default function VehicleManagement() {
             </button>
           )}
           <button
-            onClick={() => exportToCsv("vehicles.csv", filtered)}
+            onClick={() => downloadTemplate('vehicles_template.xlsx', VEHICLE_HEADERS, VEHICLE_EXAMPLE)}
             className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
           >
-            <Download className="w-4 h-4" />
-            Download templates
+            <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
+            Template
           </button>
-          <button className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2">
+          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-4 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer">
             <Upload className="w-4 h-4" />
-            Upload
+            {importing ? 'Importing…' : 'Upload'}
+            <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" disabled={importing} onChange={(event) => { const file = event.target.files?.[0]; if (file) handleUploadFile(file); event.target.value = ''; }} />
+          </label>
+          <button
+            onClick={() => exportToCsv("vehicles.csv", filtered)}
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" /> CSV
           </button>
           <Link
             to="/vehicle-management/add"
@@ -285,6 +350,17 @@ export default function VehicleManagement() {
         </table>
         <Pagination total={filtered.length} page={page} pageSize={PAGE_SIZE} onChange={setPage} />
       </div>
+      <ImportPreviewModal
+        open={showImportModal}
+        title="Import Vehicles"
+        rows={importRows}
+        columns={VEHICLE_HEADERS.map((key) => ({ key, required: ['Vehicle RTO No', 'Driver'].includes(key) }))}
+        errors={importErrors}
+        saving={importing}
+        onRowsChange={(rows) => { setImportRows(rows); setServerImportErrors({}); }}
+        onClose={() => { setShowImportModal(false); setImportRows([]); }}
+        onSave={handleConfirmImport}
+      />
     </>
   );
 }

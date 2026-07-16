@@ -45,7 +45,6 @@ const BACK_OFFICE_GET_PATHS = [
   '/api/trips',
   '/api/rosters',
   '/api/dashboard',
-  '/api/location-requests',
   '/api/notifications',
 ];
 

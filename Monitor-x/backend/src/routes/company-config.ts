@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { CompanyConfig, type CompanyConfigDoc } from '../models/CompanyConfig.js';
-import { asyncHandler } from '../middleware/errors.js';
+import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { requirePermission } from '../middleware/auth.js';
+import { Route } from '../models/Route.js';
+import { rebuildAllRouteGeometries } from '../services/route-geometry.service.js';
 
 export const companyConfigRouter = Router();
 
@@ -29,6 +31,15 @@ companyConfigRouter.put(
   requirePermission((role) => role === 'admin'),
   asyncHandler(async (req, res) => {
     const { name, address, lat, lng, logoBase64, vendors } = req.body as Partial<CompanyConfigDoc>;
+    if (lat !== undefined && (!Number.isFinite(lat) || Math.abs(lat) > 90)) {
+      throw new HttpError(400, 'latitude must be between -90 and 90');
+    }
+    if (lng !== undefined && (!Number.isFinite(lng) || Math.abs(lng) > 180)) {
+      throw new HttpError(400, 'longitude must be between -180 and 180');
+    }
+    const existing = await CompanyConfig.findOne().lean();
+    const coordinatesChanged = (lat !== undefined && lat !== existing?.lat)
+      || (lng !== undefined && lng !== existing?.lng);
     // Only overwrite fields the caller actually sent, so a save from one screen
     // (e.g. RouteForm's location card) never wipes the logo or vendor list.
     const update: Partial<CompanyConfigDoc> = {};
@@ -41,6 +52,14 @@ companyConfigRouter.put(
       update.vendors = [...new Set(vendors.map((v) => String(v).trim()).filter(Boolean))];
     }
     const doc = await CompanyConfig.findOneAndUpdate({}, update, { new: true, upsert: true });
+    if (coordinatesChanged) {
+      await Route.updateMany({}, { geometryStatus: 'pending', geometryError: '' });
+    }
     res.json(toDTO(doc));
+    if (coordinatesChanged) {
+      void rebuildAllRouteGeometries().catch((error) => {
+        console.error(`[route-geometry] company-location rebuild failed: ${(error as Error).message}`);
+      });
+    }
   })
 );

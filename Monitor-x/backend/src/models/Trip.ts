@@ -20,7 +20,44 @@ export interface TripDoc {
   verifiedEmployees: Types.ObjectId[];
   startedAt?: Date;
   completedAt?: Date;
+  // Operational-alert bookkeeping. These are independent so an overdue admin
+  // notification never suppresses the separate incomplete-OTP SMS escalation.
+  overdueNotifiedAt?: Date;
+  incompleteOtpSmsSentAt?: Date;
+  incompleteOtpSmsClaimedAt?: Date;
+  // Planned schedule. `shiftTime` remains the roster deadline; these absolute
+  // timestamps make cross-midnight trips and live ETA updates unambiguous.
+  shiftDeadlineAt?: Date;
+  scheduledStartAt?: Date;
+  driverReportAt?: Date;
+  scheduledEndAt?: Date;
+  scheduleMode: 'auto' | 'manual';
+  scheduleCalculatedAt?: Date;
+  etaUpdatedAt?: Date;
+  scheduleDistanceMeters: number;
+  scheduleDurationSeconds: number;
+  scheduleTrafficModel: string;
+  scheduleStops: {
+    employeeId: Types.ObjectId;
+    sequence: number;
+    plannedAt: Date;
+    liveEtaAt?: Date;
+    distanceMeters: number;
+    durationSeconds: number;
+  }[];
 }
+
+const scheduleStopSchema = new Schema(
+  {
+    employeeId: { type: Schema.Types.ObjectId, ref: 'Employee', required: true },
+    sequence: { type: Number, required: true },
+    plannedAt: { type: Date, required: true },
+    liveEtaAt: { type: Date, default: null },
+    distanceMeters: { type: Number, default: 0 },
+    durationSeconds: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
 
 const tripSchema = new Schema<TripDoc>({
   tripId: { type: String, required: true, unique: true },
@@ -47,6 +84,20 @@ const tripSchema = new Schema<TripDoc>({
   },
   startedAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },
+  overdueNotifiedAt: { type: Date, default: null },
+  incompleteOtpSmsSentAt: { type: Date, default: null },
+  incompleteOtpSmsClaimedAt: { type: Date, default: null },
+  shiftDeadlineAt: { type: Date, default: null },
+  scheduledStartAt: { type: Date, default: null },
+  driverReportAt: { type: Date, default: null },
+  scheduledEndAt: { type: Date, default: null },
+  scheduleMode: { type: String, enum: ['auto', 'manual'], default: 'auto' },
+  scheduleCalculatedAt: { type: Date, default: null },
+  etaUpdatedAt: { type: Date, default: null },
+  scheduleDistanceMeters: { type: Number, default: 0 },
+  scheduleDurationSeconds: { type: Number, default: 0 },
+  scheduleTrafficModel: { type: String, default: '' },
+  scheduleStops: { type: [scheduleStopSchema], default: [] },
 });
 
 export const Trip = model<TripDoc>('Trip', tripSchema);

@@ -8,6 +8,13 @@ import { useRealtime } from '../context/RealtimeContext';
 import SosButton from '../components/SosButton';
 import EscortButton from '../components/EscortButton';
 
+function formatTripTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
 export default function TripDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -25,11 +32,16 @@ export default function TripDetail() {
   useEffect(() => {
     const offStatus = on('trip:status', load);
     const offVerified = on('employee:verified', load);
+    const offSchedule = on('trip:schedule', () => {
+      load();
+      toast.success('Your driver ETA has changed');
+    });
     return () => {
       offStatus();
       offVerified();
+      offSchedule();
     };
-  }, [on, load]);
+  }, [on, load, toast]);
 
   if (!trip) return <div className="app-shell p-6 text-[#595959]">Loading…</div>;
 
@@ -53,6 +65,14 @@ export default function TripDetail() {
             </div>
           )}
         </div>
+        {trip.schedule && (
+          <div className="card p-4 border-l-4 border-l-[#004b87]">
+            <div className="font-semibold text-[#004b87] mb-2">Scheduled & Live ETA</div>
+            <Row label="Driver starts by" value={formatTripTime(trip.schedule.driverReportAt)} />
+            <Row label={trip.type === 'Drop' ? 'Expected drop' : 'Driver reaches you'} value={formatTripTime(trip.schedule.stops[0]?.liveEtaAt ?? trip.schedule.stops[0]?.plannedAt)} valueClass="text-[#004b87]" />
+            <Row label={trip.type === 'Drop' ? 'Route starts' : 'Office arrival'} value={formatTripTime(trip.type === 'Drop' ? trip.schedule.scheduledStartAt : trip.schedule.scheduledEndAt)} />
+          </div>
+        )}
         <div className="card p-4">
           <Row label="Vehicle No" value={trip.vehicleNo || '—'} />
           <Row label="Vendor" value={trip.vendor || '—'} />

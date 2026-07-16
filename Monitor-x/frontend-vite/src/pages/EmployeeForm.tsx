@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Users, MapPin, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import FormField from "../components/FormField";
-import { getEmployee, createEmployee, updateEmployee, getRoutes } from "../api";
-import type { Employee, Route } from "../api";
+import { getEmployee, createEmployee, updateEmployee, getRoutes, recommendRoute } from "../api";
+import type { Employee, Route, RouteRecommendation } from "../api";
 import { routeColor } from "../lib/routeColors";
 import { nominatimGeocode } from "../lib/geocode";
 import { useToast } from "../context/ToastContext";
@@ -20,16 +20,6 @@ const EMPTY: Employee = {
 const INPUT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0047B2]";
 const SELECT = "w-full border border-[#E0E4E9] rounded px-3 py-2 text-[13px] bg-white";
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export default function EmployeeForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,32 +31,35 @@ export default function EmployeeForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof Employee, string>>>({});
   const [saving, setSaving] = useState(false);
   const [fetchingLoc, setFetchingLoc] = useState(false);
+  const [checkingRoutes, setCheckingRoutes] = useState(false);
+  const [recommendation, setRecommendation] = useState<RouteRecommendation | null>(null);
+  const [approximateLocation, setApproximateLocation] = useState(false);
 
   useEffect(() => {
     getRoutes().then(setRoutes);
     if (id) getEmployee(id).then((e) => { if (e) setForm(e); });
   }, [id]);
 
-  // No auto-assignment: the admin picks the route, and the status just confirms
-  // the connection between the employee's location and that chosen route.
-  const routeStatus = useMemo((): { match: string; ok: boolean } | null => {
-    if (!form.route) return null;
-    const chosen = routes.find((r) => r.name === form.route);
-    if (!chosen) return null;
-    const parts = form.latLong.split(",").map((s) => parseFloat(s.trim()));
-    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-      return { match: `Route selected: ${chosen.name} — fetch or enter the location to connect it`, ok: true };
-    }
-    if (!chosen.destLat || !chosen.destLng) {
-      return { match: `Connected to Route: ${chosen.name}`, ok: true };
-    }
-    const dist = haversineKm(parts[0], parts[1], chosen.destLat, chosen.destLng);
-    return { match: `Connected to Route: ${chosen.name} (${dist.toFixed(1)} km from route destination)`, ok: true };
-  }, [form.route, form.latLong, routes]);
-
   function set(field: keyof Employee, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => ({ ...e, [field]: undefined }));
+  }
+
+  async function checkNearbyRoutes(latLong = form.latLong, autoSelect = false, approximate = approximateLocation) {
+    if (!latLong.trim()) { toast.error('Fetch or enter employee coordinates first'); return; }
+    setCheckingRoutes(true);
+    try {
+      const result = await recommendRoute(latLong);
+      setRecommendation(result);
+      if (autoSelect && !approximate && result.confidence === 'high' && result.routeName) {
+        setForm((current) => ({ ...current, route: result.routeName! }));
+      }
+    } catch (error) {
+      setRecommendation(null);
+      toast.error(`Could not check nearby routes: ${(error as Error).message}`);
+    } finally {
+      setCheckingRoutes(false);
+    }
   }
 
   async function fetchLocation() {
@@ -76,7 +69,10 @@ export default function EmployeeForm() {
       const result = await nominatimGeocode(form.address);
       if (result) {
         const latLong = `${result.lat},${result.lng}`;
-        setForm((f) => ({ ...f, latLong }));
+        const pinCode = form.address.match(/\b[1-9]\d{5}\b/)?.[0] ?? form.pinCode;
+        setApproximateLocation(Boolean(result.approximate));
+        setForm((f) => ({ ...f, latLong, location: result.label, pinCode, route: '' }));
+        await checkNearbyRoutes(latLong, true, Boolean(result.approximate));
         toast.success(
           result.approximate
             ? `Approximate location (PIN area): ${result.label}`
@@ -97,6 +93,15 @@ export default function EmployeeForm() {
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.id.trim()) errs.id = "Employee ID is required";
     if (!form.contact.trim()) errs.contact = "Contact is required";
+    if (form.transportType === 'Office Transport') {
+      if (!form.address.trim()) errs.address = 'Address is required for office transport';
+      const coordinates = form.latLong.split(',').map((value) => Number(value.trim()));
+      if (coordinates.length !== 2 || coordinates.some((value) => !Number.isFinite(value))
+        || Math.abs(coordinates[0]) > 90 || Math.abs(coordinates[1]) > 180) {
+        errs.latLong = 'Fetch or enter valid latitude,longitude values';
+      }
+      if (!form.route) errs.route = 'Select or confirm a route';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -183,7 +188,12 @@ export default function EmployeeForm() {
                 <input
                   className={INPUT}
                   value={form.address}
-                  onChange={(e) => set("address", e.target.value)}
+                  onChange={(e) => {
+                    const address = e.target.value;
+                    setForm((current) => ({ ...current, address, latLong: '', location: '', route: '' }));
+                    setRecommendation(null);
+                    setApproximateLocation(false);
+                  }}
                   placeholder="Full address to auto-fetch location"
                 />
                 <button
@@ -211,19 +221,23 @@ export default function EmployeeForm() {
             {/* Lat/Lng with route validation */}
             <FormField label="Latitude / Longitude" error={errors.latLong}>
               <input
-                className={`${INPUT} ${routeStatus ? (routeStatus.ok ? "border-green-400" : "border-red-400") : ""}`}
+                className={INPUT}
                 placeholder="e.g. 12.9716,77.5946 (auto-filled by Fetch)"
                 value={form.latLong}
-                onChange={(e) => set("latLong", e.target.value)}
+                onChange={(e) => {
+                  set('latLong', e.target.value);
+                  setRecommendation(null);
+                  setApproximateLocation(false);
+                }}
               />
-              {routeStatus && (
-                <div className={`flex items-center gap-1 mt-1 text-[11px] ${routeStatus.ok ? "text-green-600" : "text-red-500"}`}>
-                  {routeStatus.ok
-                    ? <CheckCircle className="w-3 h-3" />
-                    : <AlertCircle className="w-3 h-3" />}
-                  {routeStatus.match}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => checkNearbyRoutes()}
+                disabled={checkingRoutes || !form.latLong.trim()}
+                className="mt-2 text-[11px] bg-[#EEF4FF] text-[#0047B2] border border-[#C8D9F2] px-2 py-1 rounded disabled:opacity-50"
+              >
+                {checkingRoutes ? 'Checking route paths…' : 'Check nearby route paths'}
+              </button>
               {form.latLong.trim() && (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(form.latLong.trim())}`}
@@ -236,7 +250,7 @@ export default function EmployeeForm() {
               )}
             </FormField>
 
-            <FormField label="Route">
+            <FormField label="Route" error={errors.route}>
               <div className="flex items-center gap-2">
                 <span
                   className="w-3 h-3 rounded-full shrink-0 border border-white shadow"
@@ -255,6 +269,24 @@ export default function EmployeeForm() {
                   ))}
                 </select>
               </div>
+              {recommendation && (
+                <div className={`mt-2 p-2 rounded border text-[11px] ${
+                  recommendation.confidence === 'high' ? 'bg-green-50 border-green-200 text-green-700'
+                    : recommendation.confidence === 'ambiguous' ? 'bg-amber-50 border-amber-200 text-amber-700'
+                      : 'bg-red-50 border-red-200 text-red-700'
+                }`}>
+                  <div className="flex items-center gap-1 font-medium">
+                    {recommendation.confidence === 'high' ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                    {recommendation.reason}
+                  </div>
+                  {approximateLocation && (
+                    <div className="mt-1">This is an approximate PIN/locality location. Confirm the marker and route manually.</div>
+                  )}
+                  {recommendation.candidates.length > 0 && (
+                    <div className="mt-1">{recommendation.candidates.map((candidate) => `${candidate.routeName}: ${candidate.distanceMeters} m`).join(' · ')}</div>
+                  )}
+                </div>
+              )}
             </FormField>
           </div>
         </div>

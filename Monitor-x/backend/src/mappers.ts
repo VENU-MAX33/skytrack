@@ -11,7 +11,6 @@ import type {
   EmployeeTrip,
   SosAlert,
   EscortReportDTO,
-  LocationRequestDTO,
   EmployeeDocumentDTO,
   TripReportRow,
   FeedbackDTO,
@@ -24,10 +23,10 @@ import type { TripDoc } from './models/Trip.js';
 import type { RosterDoc } from './models/Roster.js';
 import type { SOSAlertDoc } from './models/SOSAlert.js';
 import type { EscortReportDoc } from './models/EscortReport.js';
-import type { LocationRequestDoc } from './models/LocationRequest.js';
 import type { EmployeeDocumentDoc } from './models/EmployeeDocument.js';
 import type { FeedbackDoc } from './models/Feedback.js';
 import { STATUS_COLORS, type TripStatus } from './lib/statusBuckets.js';
+import type { TripSchedule } from './types/dto.js';
 
 export function toEmployeeDTO(doc: HydratedDocument<EmployeeDoc>): Employee {
   return {
@@ -123,8 +122,15 @@ export function toRouteDTO(doc: HydratedDocument<RouteDoc>, count: number): Rout
     name: doc.name,
     count,
     type: doc.type,
+    destinationAddress: doc.destinationAddress ?? '',
     destLat: doc.destLat ?? null,
     destLng: doc.destLng ?? null,
+    dropPath: (doc.dropPath ?? []).map((point) => ({ lat: point.lat, lng: point.lng })),
+    pickupPath: (doc.pickupPath ?? []).map((point) => ({ lat: point.lat, lng: point.lng })),
+    geometryStatus: doc.geometryStatus ?? 'pending',
+    geometryProvider: doc.geometryProvider ?? '',
+    geometryUpdatedAt: doc.geometryUpdatedAt?.toISOString() ?? null,
+    geometryError: doc.geometryError ?? '',
   };
 }
 
@@ -135,6 +141,42 @@ type PopulatedTrip = Omit<HydratedDocument<TripDoc>, 'vehicleId' | 'driverId' | 
   routeId: HydratedDocument<RouteDoc> | null;
   employeeIds: HydratedDocument<EmployeeDoc>[];
 };
+
+function toTripSchedule(
+  doc: PopulatedTrip,
+  selfId?: Types.ObjectId
+): TripSchedule | null {
+  if (!doc.scheduledStartAt || !doc.scheduleStops?.length) return null;
+  const employees = new Map(doc.employeeIds.map((employee) => [employee._id.toString(), employee]));
+  const stops = doc.scheduleStops
+    .filter((stop) => !selfId || stop.employeeId.equals(selfId))
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((stop) => {
+      const employee = employees.get(stop.employeeId.toString());
+      return {
+        employeeId: employee?.empId ?? stop.employeeId.toString(),
+        employeeName: employee?.name ?? '',
+        sequence: stop.sequence,
+        plannedAt: stop.plannedAt.toISOString(),
+        liveEtaAt: stop.liveEtaAt ? stop.liveEtaAt.toISOString() : null,
+        distanceMeters: stop.distanceMeters,
+        durationSeconds: stop.durationSeconds,
+      };
+    });
+  return {
+    shiftDeadlineAt: doc.shiftDeadlineAt?.toISOString() ?? null,
+    scheduledStartAt: doc.scheduledStartAt?.toISOString() ?? null,
+    driverReportAt: doc.driverReportAt?.toISOString() ?? null,
+    scheduledEndAt: doc.scheduledEndAt?.toISOString() ?? null,
+    mode: doc.scheduleMode ?? 'auto',
+    calculatedAt: doc.scheduleCalculatedAt?.toISOString() ?? null,
+    etaUpdatedAt: doc.etaUpdatedAt?.toISOString() ?? null,
+    distanceMeters: doc.scheduleDistanceMeters ?? 0,
+    durationSeconds: doc.scheduleDurationSeconds ?? 0,
+    trafficModel: doc.scheduleTrafficModel ?? '',
+    stops,
+  };
+}
 
 /**
  * Order a trip's employees by distance from the office (the `distance` field is
@@ -174,6 +216,7 @@ export function toTripDTO(doc: PopulatedTrip): Trip {
     verifiedEmployeeIds: doc.employeeIds
       .filter((e) => verifiedSet.has(e._id.toString()))
       .map((e) => e.empId),
+    schedule: toTripSchedule(doc),
   };
 }
 
@@ -238,6 +281,7 @@ export function toDriverTripDTO(doc: PopulatedTrip): DriverTrip {
       shiftLogout: e.shiftLogout,
       verified: isVerified(doc.verifiedEmployees, e._id),
     })),
+    schedule: toTripSchedule(doc),
   };
 }
 
@@ -261,6 +305,7 @@ export function toEmployeeTripDTO(doc: PopulatedTrip, selfId: Types.ObjectId): E
     completedAt: doc.completedAt ? doc.completedAt.toISOString() : null,
     verified: isVerified(doc.verifiedEmployees, selfId),
     driver: { name: doc.driverId?.name ?? '', contact: doc.driverId?.contact ?? '' },
+    schedule: toTripSchedule(doc, selfId),
   };
 }
 
@@ -332,30 +377,6 @@ export function toRosterDTO(doc: PopulatedRoster): RosterEntry {
     route: doc.employeeId?.route ?? '',
     location: doc.employeeId?.location ?? '',
     status: doc.status,
-  };
-}
-
-type PopulatedLocationRequest = Omit<HydratedDocument<LocationRequestDoc>, 'employeeId'> & {
-  employeeId: HydratedDocument<EmployeeDoc> | null;
-};
-
-export function toLocationRequestDTO(doc: PopulatedLocationRequest): LocationRequestDTO {
-  return {
-    id: doc._id.toString(),
-    employee: {
-      id: doc.employeeId?.empId ?? '',
-      name: doc.employeeId?.name ?? '',
-      contact: doc.employeeId?.contact ?? '',
-    },
-    currentAddress: doc.currentAddress,
-    currentLatLong: doc.currentLatLong,
-    requestedAddress: doc.requestedAddress,
-    requestedLatLong: doc.requestedLatLong,
-    status: doc.status,
-    requestedAt: doc.requestedAt.toISOString(),
-    reviewedAt: doc.reviewedAt ? doc.reviewedAt.toISOString() : null,
-    reviewedBy: doc.reviewedBy ?? '',
-    note: doc.note ?? '',
   };
 }
 

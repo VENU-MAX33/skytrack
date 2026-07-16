@@ -22,8 +22,6 @@ import { sosRouter } from './routes/sos.js';
 import { escortReportRouter } from './routes/escort-report.js';
 import { companyConfigRouter } from './routes/company-config.js';
 import { employeeLocationRouter } from './routes/employee-location.js';
-import { employeeLocationRequestRouter } from './routes/employee-location-request.js';
-import { locationRequestsRouter } from './routes/location-requests.js';
 import { employeeDocumentsRouter } from './routes/employee-documents.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { reportsRouter } from './routes/reports.js';
@@ -102,14 +100,12 @@ export function createApp(): Express {
   app.use('/api/driver/tracking', requireRole('driver'), driverTrackingRouter);
   app.use('/api/employee/trips', requireRole('employee'), employeeTripsRouter);
   app.use('/api/employee/location', requireRole('employee'), employeeLocationRouter);
-  app.use('/api/employee/location-request', requireRole('employee'), employeeLocationRequestRouter);
   app.use('/api/employee/feedback', requireRole('employee'), employeeFeedbackRouter);
   // SOS: employees raise alerts; admins acknowledge (router enforces per-route roles)
   app.use('/api/sos', sosRouter);
   app.use('/api/escort-report', escortReportRouter);
 
-  // --- Back-office: location requests + employee documents + notifications ---
-  app.use('/api/location-requests', requireBackOffice, locationRequestsRouter);
+  // --- Back-office: employee documents + notifications ---
   app.use('/api/employees', requireBackOffice, employeeDocumentsRouter);
   app.use('/api/notifications', requireBackOffice, notificationsRouter);
 

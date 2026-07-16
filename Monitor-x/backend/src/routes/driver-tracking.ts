@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import { Vehicle } from '../models/Vehicle.js';
 import { CompanyConfig } from '../models/CompanyConfig.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
-import { emitVehiclePosition } from '../websocket/index.js';
+import { emitTripScheduleUpdate, emitVehiclePosition } from '../websocket/index.js';
+import { refreshDriverLiveEta } from '../services/trip-schedule.service.js';
 
 export const driverTrackingRouter = Router();
 
@@ -84,6 +85,13 @@ driverTrackingRouter.post(
       status: vehicle.trackStatus,
       speed: vehicle.speed,
     });
+    try {
+      const eta = await refreshDriverLiveEta(req.auth!.sub, { lat, lng });
+      if (eta?.changed) emitTripScheduleUpdate(eta);
+    } catch (error) {
+      // A schedule failure must never break the driver's GPS stream.
+      console.warn(`[live-eta] ${(error as Error).message}`);
+    }
     res.json({ ok: true });
   })
 );

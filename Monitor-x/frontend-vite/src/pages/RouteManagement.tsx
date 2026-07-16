@@ -186,7 +186,7 @@ export default function RouteManagement() {
     setDraft({
       name: r.name,
       type: r.type || "Both",
-      destAddr: "",
+      destAddr: r.destinationAddress || "",
       destLat: r.destLat ? String(r.destLat) : "",
       destLng: r.destLng ? String(r.destLng) : "",
     });
@@ -219,6 +219,7 @@ export default function RouteManagement() {
       const payload = {
         name: draft.name.trim(),
         type: draft.type,
+        destinationAddress: draft.destAddr.trim(),
         destLat: draft.destLat ? parseFloat(draft.destLat) : null,
         destLng: draft.destLng ? parseFloat(draft.destLng) : null,
       };
@@ -306,7 +307,11 @@ export default function RouteManagement() {
               <input
                 className={INPUT}
                 value={companyAddr}
-                onChange={(e) => setCompanyAddr(e.target.value)}
+                onChange={(e) => {
+                  setCompanyAddr(e.target.value);
+                  setCompanyLatLng('');
+                  setCompanySet(false);
+                }}
                 placeholder="e.g. Tin Factory, Bangalore"
               />
               <button
@@ -458,7 +463,7 @@ export default function RouteManagement() {
                 <input
                   className={INPUT}
                   value={draft.destAddr}
-                  onChange={(e) => setDraft((d) => ({ ...d, destAddr: e.target.value }))}
+                  onChange={(e) => setDraft((d) => ({ ...d, destAddr: e.target.value, destLat: '', destLng: '' }))}
                   placeholder="e.g. Whitefield, Bangalore"
                 />
                 <button
@@ -566,6 +571,7 @@ export default function RouteManagement() {
                   <th className="text-left py-2 pr-3 font-medium">Name</th>
                   <th className="text-left py-2 pr-3 font-medium">Type</th>
                   <th className="text-left py-2 pr-3 font-medium">Final Destination</th>
+                  <th className="text-left py-2 pr-3 font-medium">Road Geometry</th>
                   <th className="text-left py-2 pr-3 font-medium">Employees</th>
                   <th className="text-left py-2 font-medium">Actions</th>
                 </tr>
@@ -601,6 +607,15 @@ export default function RouteManagement() {
                       ) : (
                         <span className="text-[#aaa]">Not set</span>
                       )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span className={`px-2 py-1 rounded text-[10px] ${
+                        r.geometryStatus === 'ready' ? 'bg-green-100 text-green-700'
+                          : r.geometryStatus === 'error' ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                      }`} title={r.geometryError || r.geometryProvider}>
+                        {r.geometryStatus === 'ready' ? `${r.dropPath.length} points` : r.geometryStatus}
+                      </span>
                     </td>
                     <td className="py-2 pr-3 text-[#555]">{r.count}</td>
                     <td className="py-2">

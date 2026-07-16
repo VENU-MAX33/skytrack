@@ -5,16 +5,32 @@ import { Vehicle } from '../models/Vehicle.js';
 import { Route } from '../models/Route.js';
 import { Employee } from '../models/Employee.js';
 import { Counter } from '../models/Counter.js';
-import { toTripDTO } from '../mappers.js';
+import { toDriverTripDTO, toEmployeeTripDTO, toTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday } from '../lib/statusBuckets.js';
-import { emitTripFrozen, emitTripStatus } from '../websocket/index.js';
+import { emitTripFrozen, emitTripScheduleUpdate, emitTripStatus } from '../websocket/index.js';
 import { idempotent } from '../middleware/idempotency.js';
+import { recalculateTripSchedule } from '../services/trip-schedule.service.js';
 
 export const tripsRouter = Router();
 
 const TRIP_POPULATE = 'vehicleId driverId routeId employeeIds';
 type Populated = Parameters<typeof toTripDTO>[0];
+
+function broadcastSchedule(populated: Populated): void {
+  emitTripScheduleUpdate({
+    tripId: populated.tripId,
+    driverId: populated.driverId?._id.toString() ?? '',
+    employeeIds: populated.employeeIds.map((employee) => employee._id.toString()),
+  });
+}
+
+function parseScheduleDate(value: unknown, field: string): Date | undefined {
+  if (value == null || value === '') return undefined;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) throw new HttpError(400, `${field} must be a valid date-time`);
+  return date;
+}
 
 // Hands out the next per-day trip id atomically. The counter is seeded once (via
 // $max) from any pre-existing trips for the day — e.g. seeded data created
@@ -135,8 +151,15 @@ tripsRouter.post(
       vendor: vehicle.vendor,
       location: route.name,
     });
-    await doc.populate(TRIP_POPULATE);
-    res.status(201).json(toTripDTO(doc as unknown as Populated));
+    try {
+      await recalculateTripSchedule(tripId, { force: true });
+    } catch (error) {
+      // Keep the trip when location data is incomplete; the admin can correct
+      // the coordinates and use the visible Recalculate action.
+      console.warn(`[schedule] ${tripId}: ${(error as Error).message}`);
+    }
+    const created = await Trip.findOne({ tripId }).populate(TRIP_POPULATE);
+    res.status(201).json(toTripDTO(created as unknown as Populated));
   })
 );
 
@@ -177,8 +200,15 @@ tripsRouter.put(
       doc.driverId = vehicle.driverId;
     }
     await doc.save();
-    await doc.populate(TRIP_POPULATE);
-    const populated = doc as unknown as Populated;
+    if (doc.scheduleMode !== 'manual') {
+      try {
+        await recalculateTripSchedule(doc.tripId, { force: true });
+      } catch (error) {
+        console.warn(`[schedule] ${doc.tripId}: ${(error as Error).message}`);
+      }
+    }
+    const fresh = await Trip.findById(doc._id).populate(TRIP_POPULATE);
+    const populated = fresh as unknown as Populated;
     const dto = toTripDTO(populated);
 
     emitTripStatus({
@@ -218,21 +248,98 @@ tripsRouter.put(
   })
 );
 
+// Rebuild all stop times from the roster deadline and the current locations.
+tripsRouter.put(
+  '/:id/schedule/recalculate',
+  asyncHandler(async (req, res) => {
+    if (req.auth?.role !== 'admin') throw new HttpError(403, 'Only the main admin can recalculate schedules');
+    try {
+      await recalculateTripSchedule(req.params.id, { force: true });
+    } catch (error) {
+      throw new HttpError(422, (error as Error).message);
+    }
+    const doc = await Trip.findOne({ tripId: req.params.id }).populate(TRIP_POPULATE);
+    if (!doc) throw new HttpError(404, 'Trip not found');
+    const populated = doc as unknown as Populated;
+    broadcastSchedule(populated);
+    res.json(toTripDTO(populated));
+  })
+);
+
+// Manual admin override. Individual stop overrides use public employee ids.
+tripsRouter.put(
+  '/:id/schedule',
+  asyncHandler(async (req, res) => {
+    if (req.auth?.role !== 'admin') throw new HttpError(403, 'Only the main admin can edit schedules');
+    const doc = await Trip.findOne({ tripId: req.params.id }).populate(TRIP_POPULATE);
+    if (!doc) throw new HttpError(404, 'Trip not found');
+    const populated = doc as unknown as Populated;
+    const body = req.body as {
+      driverReportAt?: string;
+      scheduledStartAt?: string;
+      scheduledEndAt?: string;
+      stops?: { employeeId: string; plannedAt: string }[];
+    };
+    const driverReportAt = parseScheduleDate(body.driverReportAt, 'driverReportAt');
+    const scheduledStartAt = parseScheduleDate(body.scheduledStartAt, 'scheduledStartAt');
+    const scheduledEndAt = parseScheduleDate(body.scheduledEndAt, 'scheduledEndAt');
+    if (driverReportAt) doc.driverReportAt = driverReportAt;
+    if (scheduledStartAt) doc.scheduledStartAt = scheduledStartAt;
+    if (scheduledEndAt) doc.scheduledEndAt = scheduledEndAt;
+    if (body.stops) {
+      const employees = new Map(populated.employeeIds.map((employee) => [employee.empId, employee._id]));
+      for (const override of body.stops) {
+        const employeeId = employees.get(override.employeeId);
+        const plannedAt = parseScheduleDate(override.plannedAt, 'stop plannedAt');
+        if (!employeeId || !plannedAt) continue;
+        const stop = doc.scheduleStops.find((candidate) => candidate.employeeId.equals(employeeId));
+        if (stop) {
+          stop.plannedAt = plannedAt;
+          stop.liveEtaAt = plannedAt;
+        }
+      }
+    }
+    doc.scheduleMode = 'manual';
+    doc.scheduleCalculatedAt = new Date();
+    doc.etaUpdatedAt = new Date();
+    await doc.save();
+    await doc.populate(TRIP_POPULATE);
+    const updated = doc as unknown as Populated;
+    broadcastSchedule(updated);
+    res.json(toTripDTO(updated));
+  })
+);
+
 tripsRouter.put(
   '/:id/freeze',
   asyncHandler(async (req, res) => {
     const tripId = req.params.id;
-    const doc = await Trip.findOneAndUpdate({ tripId }, { frozen: true }, { new: true });
+    let doc = await Trip.findOneAndUpdate({ tripId }, { frozen: true }, { new: true });
     if (!doc) throw new HttpError(404, 'Trip not found');
+    if (!doc.scheduledStartAt) {
+      try {
+        await recalculateTripSchedule(tripId, { force: true });
+        doc = (await Trip.findOne({ tripId }))!;
+      } catch (error) {
+        throw new HttpError(422, `Cannot push trip without a schedule: ${(error as Error).message}`);
+      }
+    }
     await doc.populate(TRIP_POPULATE);
     const populated = doc as unknown as Populated;
     const dto = toTripDTO(populated);
 
     // Notify the assigned driver and employees in real time.
     emitTripFrozen({
-      trip: dto,
+      adminTrip: dto,
+      driverTrip: toDriverTripDTO(populated as Parameters<typeof toDriverTripDTO>[0]),
       driverId: populated.driverId?._id.toString() ?? '',
-      employeeIds: populated.employeeIds.map((e) => e._id.toString()),
+      employeeTrips: populated.employeeIds.map((employee) => ({
+        employeeId: employee._id.toString(),
+        trip: toEmployeeTripDTO(
+          populated as Parameters<typeof toEmployeeTripDTO>[0],
+          employee._id
+        ),
+      })),
     });
     res.json(dto);
   })

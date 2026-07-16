@@ -18,6 +18,31 @@ export interface EmployeeTrip {
   completedAt: string | null;
   verified: boolean;
   driver: { name: string; contact: string };
+  schedule: TripSchedule | null;
+}
+
+export interface TripScheduleStop {
+  employeeId: string;
+  employeeName: string;
+  sequence: number;
+  plannedAt: string;
+  liveEtaAt: string | null;
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+export interface TripSchedule {
+  shiftDeadlineAt: string | null;
+  scheduledStartAt: string | null;
+  driverReportAt: string | null;
+  scheduledEndAt: string | null;
+  mode: 'auto' | 'manual';
+  calculatedAt: string | null;
+  etaUpdatedAt: string | null;
+  distanceMeters: number;
+  durationSeconds: number;
+  trafficModel: string;
+  stops: TripScheduleStop[];
 }
 
 export interface EmployeeUser {

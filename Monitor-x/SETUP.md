@@ -33,8 +33,15 @@ New optional variables (sensible defaults shown):
 |---|---|---|
 | `CORS_ORIGINS` | `http://localhost:5173,5174,5175` | Comma-separated allowed origins (REST + WS). Falls back to legacy `CORS_ORIGIN`. |
 | `DEFAULT_EMPLOYEE_PASSWORD` | `monitorx@123` | Shared password seeded for every employee. |
-| `SMS_PROVIDER` | `dev` | `dev` logs OTPs to console + emits over WebSocket. `msg91` for real SMS. |
+| `SMS_PROVIDER` | `dev` | `dev` logs OTPs to the backend console. Set `fast2sms` to deliver real OTP SMS. |
+| `FAST2SMS_API_KEY` | — | Required only when `SMS_PROVIDER=fast2sms`. Keep it in `backend/.env`; never expose it to a frontend. |
 | `MSG91_AUTH_KEY` / `MSG91_SENDER_ID` / `MSG91_TEMPLATE_ID` | — | Required only when `SMS_PROVIDER=msg91`. |
+| `SCHEDULE_ARRIVAL_BUFFER_MINUTES` | `5` | Pickup office-arrival safety buffer before login time. |
+| `SCHEDULE_DRIVER_BUFFER_MINUTES` | `5` | Driver report/start-by buffer before route departure. |
+| `SCHEDULE_STOP_DWELL_MINUTES` | `2` | Boarding/drop allowance added at every employee stop. |
+| `LIVE_ETA_THROTTLE_MS` | `30000` | Minimum delay between GPS-based ETA calculations per driver. |
+| `LIVE_ETA_NOTIFY_SECONDS` | `120` | Minimum ETA change that triggers an app update notification. |
+| `GOOGLE_ROUTES_API_KEY` | — | Optional Google Routes API key for route-specific live traffic; the built-in time-of-day model is the fallback. |
 
 ## Seeding (DESTRUCTIVE — drops and recreates all collections)
 
@@ -77,9 +84,17 @@ cd Monitor-x/employee-web && npm run dev       # :5175  (employee)
 8. **Forgot password:** driver app → "Forgot password" → enter phone → OTP printed
    to console / shown as a dev toast → reset.
 
-## Real SMS later
+## Fast2SMS OTP delivery
 
-Set `SMS_PROVIDER=msg91` and the `MSG91_*` vars, then implement the TODO in
-`backend/src/services/otp.service.ts > deliverSms()`. No other code changes are
-needed — both the pickup OTP and the driver password-reset OTP route through that
-single function.
+Create `Monitor-x/backend/.env` from `.env.example` and add the following. The
+file is git-ignored, so the key stays local to the backend:
+
+```env
+SMS_PROVIDER=fast2sms
+FAST2SMS_API_KEY=your_fast2sms_key
+```
+
+Restart the backend after changing the environment. Fast2SMS requires a valid
+account, an enabled OTP API route, and sufficient wallet/KYC status; the API
+will return the provider error to the OTP request if any of those are missing.
+Both login/reset and employee pickup OTPs use this same provider integration.

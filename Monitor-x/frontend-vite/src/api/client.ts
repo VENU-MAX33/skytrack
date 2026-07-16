@@ -3,7 +3,7 @@ const BASE_URL = (import.meta as unknown as { env: Record<string, string> }).env
 export const TOKEN_KEY = 'auth_jwt';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public details?: unknown) {
     super(message);
   }
 }
@@ -20,13 +20,15 @@ async function handle<T>(res: Response, method: string, path: string): Promise<T
   }
   if (!res.ok) {
     let message = `${method} ${path} failed: ${res.status}`;
+    let details: unknown;
     try {
       const body = (await res.json()) as { error?: string };
+      details = body;
       if (body.error) message = body.error;
     } catch {
       // non-JSON error body; keep default message
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, details);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

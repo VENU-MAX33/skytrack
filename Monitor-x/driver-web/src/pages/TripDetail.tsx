@@ -17,6 +17,14 @@ import { useRealtime } from '../context/RealtimeContext';
 
 const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
 
+function formatTripTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function parseLatLng(raw: string): [number, number] | null {
   const parts = raw.split(',').map((s) => parseFloat(s.trim()));
   if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return [parts[0], parts[1]];
@@ -79,7 +87,11 @@ export default function TripDetail() {
   }, [id, toast]);
 
   useEffect(() => load(), [load]);
-  useEffect(() => on('trip:status', load), [on, load]);
+  useEffect(() => {
+    const offStatus = on('trip:status', load);
+    const offSchedule = on('trip:schedule', load);
+    return () => { offStatus(); offSchedule(); };
+  }, [on, load]);
 
   // Office location — the final destination once every pickup is done.
   useEffect(() => {
@@ -145,6 +157,9 @@ export default function TripDetail() {
   }
 
   async function handleComplete() {
+    if (!allVerified) {
+      return toast.error(`Verify all ${trip?.employees.length ?? 0} employee OTPs before ending the trip`);
+    }
     setBusy('complete');
     try {
       setTrip(await completeTrip(id));
@@ -190,6 +205,20 @@ export default function TripDetail() {
           )}
         </div>
       </header>
+
+      {trip.schedule && (
+        <div className="mx-3 mt-3 rounded-xl border border-[#d8d1ef] bg-[#f8f6ff] p-3">
+          <div className="text-[11px] font-bold text-[#6a5ca1] tracking-wide mb-2">TRIP SCHEDULE · {trip.schedule.mode === 'auto' ? 'AUTO' : 'ADMIN EDITED'}</div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <TimeBox label="Report / start by" value={formatTripTime(trip.schedule.driverReportAt)} />
+            <TimeBox label="Route departure" value={formatTripTime(trip.schedule.scheduledStartAt)} />
+            <TimeBox label="Final arrival" value={formatTripTime(trip.schedule.scheduledEndAt)} />
+          </div>
+          {trip.schedule.etaUpdatedAt && (
+            <div className="text-[10px] text-[#777] text-right mt-2">Live ETA updated {formatTripTime(trip.schedule.etaUpdatedAt)}</div>
+          )}
+        </div>
+      )}
 
       {/* Sequential pickup flow: next stop → OTP verify → next stop → … → office */}
       {nextStop && (
@@ -355,6 +384,15 @@ export default function TripDetail() {
                     {emp.id} · {emp.shiftLogin || '—'}
                   </div>
                   <div className="text-[12px] text-[#595959]">{emp.location || emp.nodalPoint}</div>
+                  {trip.schedule?.stops.find((stop) => stop.employeeId === emp.id) && (() => {
+                    const stop = trip.schedule!.stops.find((candidate) => candidate.employeeId === emp.id)!;
+                    return (
+                      <div className="text-[12px] font-semibold text-[#6a5ca1] mt-1">
+                        Planned {formatTripTime(stop.plannedAt)}
+                        {stop.liveEtaAt ? ` · Live ETA ${formatTripTime(stop.liveEtaAt)}` : ''}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-2">
                   {emp.contact && (
@@ -421,7 +459,7 @@ export default function TripDetail() {
           ) : (
             <button
               onClick={handleComplete}
-              disabled={busy === 'complete'}
+              disabled={busy === 'complete' || !allVerified}
               className={`btn w-full ${allVerified ? 'btn-danger' : 'btn-outline'}`}
               title={allVerified ? 'End the trip at the office' : `${verifiedCount}/${trip.employees.length} picked up`}
             >
@@ -432,4 +470,8 @@ export default function TripDetail() {
       )}
     </div>
   );
+}
+
+function TimeBox({ label, value }: { label: string; value: string }) {
+  return <div className="bg-white rounded-lg p-2"><div className="text-[10px] text-[#777]">{label}</div><div className="text-[12px] font-bold text-[#333] mt-1">{value}</div></div>;
 }

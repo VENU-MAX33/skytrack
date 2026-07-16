@@ -35,6 +35,44 @@ async function assertContactUnique(contact: string | undefined, excludeName?: st
   }
 }
 
+async function prepareDriverBulk(rows: Partial<DriverDTO>[]): Promise<{
+  prepared: Record<string, unknown>[];
+  errors: { row: number; reasons: string[] }[];
+}> {
+  const dlNumbers = rows.map((row) => row.dlNumber?.trim()).filter((value): value is string => Boolean(value));
+  const contacts = rows.map((row) => row.contact?.trim()).filter((value): value is string => Boolean(value));
+  const existing = await Driver.find({ $or: [{ dlNumber: { $in: dlNumbers } }, { contact: { $in: contacts } }] })
+    .select('name dlNumber contact')
+    .lean();
+  const existingDls = new Set(existing.map((driver) => driver.dlNumber.toLowerCase()));
+  const existingContacts = new Map(existing.map((driver) => [driver.contact, driver.name]));
+  const seenDls = new Set<string>();
+  const seenContacts = new Set<string>();
+  const prepared: Record<string, unknown>[] = [];
+  const errors: { row: number; reasons: string[] }[] = [];
+
+  rows.forEach((body, index) => {
+    const name = body.name?.trim() ?? '';
+    const dlNumber = body.dlNumber?.trim() ?? '';
+    const contact = body.contact?.trim() ?? '';
+    const dlKey = dlNumber.toLowerCase();
+    const reasons: string[] = [];
+    if (!name) reasons.push('Name is required');
+    if (!dlNumber) reasons.push('DL Number is required');
+    if (!contact) reasons.push('Contact is required');
+    if (dlNumber && seenDls.has(dlKey)) reasons.push('Duplicate DL Number in this file');
+    if (contact && seenContacts.has(contact)) reasons.push('Duplicate contact in this file');
+    if (dlNumber && existingDls.has(dlKey)) reasons.push(`Driver with DL ${dlNumber} already exists`);
+    const contactOwner = contact ? existingContacts.get(contact) : undefined;
+    if (contactOwner) reasons.push(`Contact is already registered to ${contactOwner}`);
+    if (dlNumber) seenDls.add(dlKey);
+    if (contact) seenContacts.add(contact);
+    if (reasons.length) errors.push({ row: index + 2, reasons });
+    else prepared.push(pickDriverFields({ ...body, name, dlNumber, contact }));
+  });
+  return { prepared, errors };
+}
+
 driversRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -66,8 +104,16 @@ driversRouter.post(
   })
 );
 
-// POST /api/drivers/bulk — import many drivers from an uploaded sheet.
-// Skips rows missing name/DL and rows whose DL already exists; reports per-row outcome.
+driversRouter.post(
+  '/bulk/validate',
+  asyncHandler(async (req, res) => {
+    const { drivers } = req.body as { drivers?: Partial<DriverDTO>[] };
+    if (!Array.isArray(drivers) || drivers.length === 0) throw new HttpError(400, 'drivers array is required');
+    const result = await prepareDriverBulk(drivers);
+    res.json({ valid: result.errors.length === 0, total: drivers.length, errors: result.errors });
+  })
+);
+
 driversRouter.post(
   '/bulk',
   asyncHandler(async (req, res) => {
@@ -75,32 +121,13 @@ driversRouter.post(
     if (!Array.isArray(drivers) || drivers.length === 0) {
       throw new HttpError(400, 'drivers array is required');
     }
-    let created = 0;
-    let skipped = 0;
-    const errors: { row: number; reason: string }[] = [];
-    for (let i = 0; i < drivers.length; i++) {
-      const d = drivers[i];
-      if (!d.name?.trim() || !d.dlNumber?.trim()) {
-        errors.push({ row: i + 1, reason: 'name and dlNumber are required' });
-        continue;
-      }
-      const exists = await Driver.findOne({ dlNumber: d.dlNumber });
-      if (exists) { skipped++; continue; }
-      if (d.contact?.trim()) {
-        const dupContact = await Driver.findOne({ contact: d.contact.trim() });
-        if (dupContact) {
-          errors.push({ row: i + 1, reason: `mobile number already registered to driver ${dupContact.name}` });
-          continue;
-        }
-      }
-      try {
-        await Driver.create(pickDriverFields(d));
-        created++;
-      } catch (err) {
-        errors.push({ row: i + 1, reason: (err as Error).message });
-      }
+    const result = await prepareDriverBulk(drivers);
+    if (result.errors.length > 0) {
+      res.status(422).json({ error: 'Import contains invalid drivers', created: 0, skipped: 0, failed: result.errors.length, errors: result.errors });
+      return;
     }
-    res.status(201).json({ created, skipped, failed: errors.length, errors });
+    await Driver.insertMany(result.prepared);
+    res.status(201).json({ created: result.prepared.length, skipped: 0, failed: 0, errors: [] });
   })
 );
 

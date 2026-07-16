@@ -1,26 +1,19 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Bus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet, Trash2 } from "lucide-react";
-import { getTrips, getRosters, getVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle, updateTripEscort } from "../api";
-import type { Trip, RosterEntry, Vehicle } from "../api";
+import { Bus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet, Trash2, Clock3, RefreshCw, Pencil } from "lucide-react";
+import { getTrips, getRosters, getVehicles, getEmployees, getDrivers, getRoutes, importDrivers, importVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle, updateTripEscort, recalculateTripSchedule, updateTripSchedule } from "../api";
+import type { Driver, Employee, Route, Trip, RosterEntry, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
+import ImportPreviewModal from "../components/ImportPreviewModal";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { localToday } from "../lib/tripStatus";
-import { exportToExcel, parseExcel } from "../lib/excel";
+import { downloadTemplate, exportToExcel, parseExcel, type ExcelRow } from "../lib/excel";
+import { IMPORT_ALIASES, TRIP_EXAMPLE, TRIP_HEADERS, driverFromTripRow, rowErrors, vehicleFromRow } from "../lib/importSchemas";
 import { useVendors } from "../hooks/useVendors";
 
 const PAGE_SIZE = 10;
-
-interface TripImportRow {
-  'Employee IDs'?: string;
-  'Vehicle No'?: string;
-  'Route Name'?: string;
-  Date?: string;
-  'Shift Time'?: string;
-  Type?: string;
-}
 
 function OfficeStop({ label }: { label: string }) {
   return (
@@ -29,6 +22,151 @@ function OfficeStop({ label }: { label: string }) {
       <span className="text-[13px] font-medium text-[#0047B2]">{label}</span>
     </li>
   );
+}
+
+function formatScheduleTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function toDateTimeLocal(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
+function localInputToIso(value: string): string {
+  return value ? new Date(`${value}:00+05:30`).toISOString() : "";
+}
+
+function SchedulePanel({ trip, canEdit, onUpdated }: { trip: Trip; canEdit: boolean; onUpdated: () => void }) {
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [reportAt, setReportAt] = useState("");
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  const [stops, setStops] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setReportAt(toDateTimeLocal(trip.schedule?.driverReportAt));
+    setStartAt(toDateTimeLocal(trip.schedule?.scheduledStartAt));
+    setEndAt(toDateTimeLocal(trip.schedule?.scheduledEndAt));
+    setStops(Object.fromEntries((trip.schedule?.stops ?? []).map((stop) => [stop.employeeId, toDateTimeLocal(stop.plannedAt)])));
+  }, [trip]);
+
+  async function recalculate() {
+    setBusy(true);
+    try {
+      await recalculateTripSchedule(trip.id);
+      toast.success(`Schedule recalculated for ${trip.id}`);
+      setEditing(false);
+      onUpdated();
+    } catch (error) {
+      toast.error(`Could not calculate schedule: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      await updateTripSchedule(trip.id, {
+        driverReportAt: localInputToIso(reportAt),
+        scheduledStartAt: localInputToIso(startAt),
+        scheduledEndAt: localInputToIso(endAt),
+        stops: Object.entries(stops).map(([employeeId, plannedAt]) => ({
+          employeeId,
+          plannedAt: localInputToIso(plannedAt),
+        })),
+      });
+      toast.success(`Manual schedule saved for ${trip.id}`);
+      setEditing(false);
+      onUpdated();
+    } catch (error) {
+      toast.error(`Could not save schedule: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!trip.schedule) {
+    return (
+      <div className="mb-4 rounded border border-[#E6A817] bg-[#FFFBEB] p-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[13px] font-semibold text-[#8A5A00]">Schedule needs calculation</div>
+          <div className="text-[11px] text-[#8A5A00]">Check company and employee coordinates, then calculate again.</div>
+        </div>
+        {canEdit && <button disabled={busy} onClick={recalculate} className="px-3 py-2 rounded bg-[#0047B2] text-white text-[12px]">Calculate</button>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded border border-[#CBD9F0] bg-white p-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <Clock3 className="w-4 h-4 text-[#0047B2]" />
+          <span className="text-[13px] font-semibold">Automatic Trip Schedule</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded ${trip.schedule.mode === "auto" ? "bg-[#E9FDEA] text-[#18751C]" : "bg-[#FFF4E5] text-[#B05A00]"}`}>
+            {trip.schedule.mode === "auto" ? "AUTO" : "ADMIN EDITED"}
+          </span>
+        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <button disabled={busy} onClick={recalculate} className="flex items-center gap-1 px-2 py-1.5 border rounded text-[11px]"><RefreshCw className={`w-3 h-3 ${busy ? "animate-spin" : ""}`} /> Recalculate</button>
+            <button disabled={busy} onClick={() => setEditing((value) => !value)} className="flex items-center gap-1 px-2 py-1.5 border rounded text-[11px]"><Pencil className="w-3 h-3" /> Edit</button>
+          </div>
+        )}
+      </div>
+      {editing ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <ScheduleInput label="Driver report/start-by" value={reportAt} onChange={setReportAt} />
+            <ScheduleInput label="Route departure" value={startAt} onChange={setStartAt} />
+            <ScheduleInput label="Final arrival" value={endAt} onChange={setEndAt} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {trip.schedule.stops.map((stop) => (
+              <ScheduleInput key={stop.employeeId} label={`${stop.sequence}. ${stop.employeeName}`} value={stops[stop.employeeId] ?? ""} onChange={(value) => setStops((current) => ({ ...current, [stop.employeeId]: value }))} />
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditing(false)} className="px-3 py-2 border rounded text-[12px]">Cancel</button>
+            <button disabled={busy} onClick={save} className="px-3 py-2 rounded bg-[#18751C] text-white text-[12px]">{busy ? "Saving…" : "Save edited times"}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-3 text-[11px]">
+          <ScheduleValue label="Driver report/start-by" value={formatScheduleTime(trip.schedule.driverReportAt)} />
+          <ScheduleValue label="Route departure" value={formatScheduleTime(trip.schedule.scheduledStartAt)} />
+          <ScheduleValue label="Final arrival" value={formatScheduleTime(trip.schedule.scheduledEndAt)} />
+          <ScheduleValue label="Distance / duration" value={`${(trip.schedule.distanceMeters / 1000).toFixed(1)} km · ${Math.ceil(trip.schedule.durationSeconds / 60)} min`} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScheduleInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="text-[11px] text-[#595959]">{label}<input type="datetime-local" value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-[12px]" /></label>;
+}
+
+function ScheduleValue({ label, value }: { label: string; value: string }) {
+  return <div><div className="text-[#848484]">{label}</div><div className="font-semibold text-[#222222] mt-0.5">{value}</div></div>;
 }
 
 export default function TripManagement() {
@@ -48,7 +186,7 @@ export default function TripManagement() {
   const [shiftTime, setShiftTime] = useState("All");
   const [page, setPage] = useState(1);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importRows, setImportRows] = useState<TripImportRow[]>([]);
+  const [importRows, setImportRows] = useState<ExcelRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
   const importRef = useRef<HTMLInputElement>(null);
@@ -57,6 +195,9 @@ export default function TripManagement() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [rosters, setRosters] = useState<RosterEntry[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
@@ -85,12 +226,18 @@ export default function TripManagement() {
   useEffect(() => {
     const offStatus = on("trip:status", load);
     const offVerified = on("employee:verified", load);
-    return () => { offStatus(); offVerified(); };
+    const offSchedule = on("trip:schedule", load);
+    return () => { offStatus(); offVerified(); offSchedule(); };
   }, [on, load]);
 
   useEffect(() => {
-    getVehicles()
-      .then(setVehicles)
+    Promise.all([getVehicles(), getEmployees(), getDrivers(), getRoutes()])
+      .then(([vehicleData, employeeData, driverData, routeData]) => {
+        setVehicles(vehicleData);
+        setEmployees(employeeData);
+        setDrivers(driverData);
+        setRoutes(routeData);
+      })
       .catch((err: Error) => toast.error(`Failed to load vehicles: ${err.message}`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -255,47 +402,108 @@ export default function TripManagement() {
 
   async function handleImportFile(file: File) {
     try {
-      const rows = await parseExcel<TripImportRow>(file);
-      if (rows.length === 0) { toast.error('No rows found in file'); return; }
+      const rows = await parseExcel(file, { aliases: {
+        ...IMPORT_ALIASES,
+        Route: 'Route Name',
+        'Vehicle Number': 'Vehicle No',
+        'RTO No': 'Vehicle No',
+        'RTO Number': 'Vehicle No',
+        'Vehicle RTO No': 'Vehicle No',
+      } });
+      if (rows.length === 0) { toast.error('No data rows found. Download the Trip package template and add rows below its header.'); return; }
       setImportRows(rows);
       setShowImportModal(true);
-    } catch {
-      toast.error('Failed to parse Excel file');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to parse Excel file');
     }
   }
 
+  const importErrors = useMemo(() => {
+    const employeeIds = new Set(employees.map((employee) => employee.id));
+    const routeNames = new Set(routes.map((route) => route.name));
+    const existingVehicles = new Map(vehicles.map((vehicle) => [vehicle.rtoNo.toUpperCase(), vehicle]));
+    const existingDrivers = new Set(drivers.map((driver) => driver.name));
+    return rowErrors(importRows, (row) => {
+      const errors: string[] = [];
+      const type = (row.Type ?? '').trim().toLowerCase();
+      const ids = (row['Employee IDs'] ?? '').split(',').map((id) => id.trim()).filter(Boolean);
+      const routeName = (row['Route Name'] ?? '').trim();
+      const vehicleNo = (row['Vehicle No'] ?? '').trim();
+      const existingVehicle = existingVehicles.get(vehicleNo.toUpperCase());
+      const packageDriver = driverFromTripRow(row);
+      if (!(row.Date ?? '').trim()) errors.push('Date is required');
+      if (!['pickup', 'pick', 'drop'].includes(type)) errors.push('Type must be PickUp or Drop');
+      if (!(row['Shift Time'] ?? '').trim()) errors.push('Shift Time is required');
+      if (!routeName) errors.push('Route Name is required');
+      else if (!routeNames.has(routeName)) errors.push(`Unknown route: ${routeName}`);
+      if (!ids.length) errors.push('Employee IDs are required');
+      ids.filter((id) => !employeeIds.has(id)).forEach((id) => errors.push(`Unknown employee: ${id}`));
+      if (!vehicleNo) errors.push('Vehicle No is required');
+      if (existingVehicle && !existingVehicle.driver) errors.push('Existing vehicle has no assigned driver');
+      if (!existingVehicle) {
+        if (!packageDriver.name) errors.push('New vehicle needs Driver Name');
+        if (packageDriver.name && !existingDrivers.has(packageDriver.name)) {
+          if (!packageDriver.contact) errors.push('New driver needs Driver Contact');
+          if (!packageDriver.dlNumber) errors.push('New driver needs DL Number');
+        }
+      }
+      return errors;
+    });
+  }, [drivers, employees, importRows, routes, vehicles]);
+
   async function handleConfirmImport() {
     setImporting(true);
-    let ok = 0; let fail = 0;
-    for (let i = 0; i < importRows.length; i++) {
-      const row = importRows[i];
-      setImportProgress(`Creating trip ${i + 1}/${importRows.length}…`);
-      try {
+    let createdTrips = 0;
+    try {
+      const existingDriverNames = new Set(drivers.map((driver) => driver.name));
+      const newDrivers = Array.from(new Map(importRows
+        .map(driverFromTripRow)
+        .filter((driver) => driver.name && !existingDriverNames.has(driver.name))
+        .map((driver) => [driver.name, driver])).values());
+      if (newDrivers.length) {
+        setImportProgress(`Saving ${newDrivers.length} new drivers…`);
+        await importDrivers(newDrivers);
+      }
+
+      const existingVehicleNumbers = new Set(vehicles.map((vehicle) => vehicle.rtoNo.toLowerCase()));
+      const newVehicles = Array.from(new Map(importRows
+        .map((row) => vehicleFromRow(row, row['Driver Vendor'] ?? ''))
+        .filter((vehicle) => vehicle.rtoNo && !existingVehicleNumbers.has(vehicle.rtoNo.toLowerCase()))
+        .map((vehicle) => [vehicle.rtoNo.toLowerCase(), vehicle])).values());
+      if (newVehicles.length) {
+        setImportProgress(`Saving ${newVehicles.length} new vehicles…`);
+        await importVehicles(newVehicles);
+      }
+
+      for (let i = 0; i < importRows.length; i++) {
+        const row = importRows[i];
+        setImportProgress(`Creating trip ${i + 1}/${importRows.length}…`);
         const empIds = (row['Employee IDs'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
         await createTrip({
           status: 'Not Started Yet',
-          statusColor: '',
-          type: (row.Type ?? 'PickUp') === 'Drop' ? 'Drop' : 'PickUp',
-          date: row.Date ?? localToday(),
-          escort: 'No',
-          shiftTime: row['Shift Time'] ?? '09:00',
-          empCount: empIds.length,
-          location: row['Route Name'] ?? '',
-          vendor: '',
-          vehicleNo: row['Vehicle No'] ?? '',
+          type: (row.Type ?? 'PickUp').toLowerCase() === 'drop' ? 'Drop' : 'PickUp',
+          date: row.Date || localToday(),
+          escort: (row.Escort ?? 'No').toLowerCase() === 'yes' ? 'Yes' : 'No',
+          shiftTime: row['Shift Time'] || '09:00',
+          routeName: row['Route Name'],
+          vehicleNo: row['Vehicle No'],
           employeeIds: empIds,
         });
-        ok++;
-      } catch {
-        fail++;
+        createdTrips++;
       }
+      setShowImportModal(false);
+      setImportRows([]);
+      toast.success(`${createdTrips} trips imported with their driver/vehicle details`);
+      const [vehicleData, driverData] = await Promise.all([getVehicles(), getDrivers()]);
+      setVehicles(vehicleData);
+      setDrivers(driverData);
+      load();
+    } catch (error) {
+      toast.error(`Trip package stopped after ${createdTrips} trips: ${(error as Error).message}`);
+    } finally {
+      setImporting(false);
+      setImportProgress('');
     }
-    setImporting(false);
-    setImportProgress('');
-    setShowImportModal(false);
-    setImportRows([]);
-    toast.success(`Import done: ${ok} created${fail > 0 ? `, ${fail} failed` : ''}`);
-    load();
   }
 
   return (
@@ -323,6 +531,13 @@ export default function TripManagement() {
           >
             <Download className="w-4 h-4 text-[#0047B2]" />
             Export
+          </button>
+          <button
+            onClick={() => downloadTemplate('trip_package_template.xlsx', TRIP_HEADERS, TRIP_EXAMPLE)}
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+            title="Download combined trip, driver and vehicle template"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-[#18751C]" /> Template
           </button>
           {/* Excel: import trips */}
           <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer" title="Import trips from Excel">
@@ -617,6 +832,7 @@ export default function TripManagement() {
                     <tr>
                       <td colSpan={12} className="p-0 border-b border-[#E0E4E9]">
                         <div className="bg-[#F9F9F9] p-4 shadow-inner">
+                          <SchedulePanel trip={trip} canEdit={isAdmin} onUpdated={load} />
                           <h3 className="text-[14px] font-semibold text-[#222222] mb-1">Pickup / Drop Sequence ({trip.employees?.length || 0})</h3>
                           <p className="text-[11px] text-[#848484] mb-3">
                             {trip.type === 'Drop'
@@ -646,6 +862,10 @@ export default function TripManagement() {
                                       {emp.distance && (
                                         <div className="text-[11px] text-[#595959] mt-1">{emp.distance} km from office</div>
                                       )}
+                                      {trip.schedule?.stops.find((stop) => stop.employeeId === emp.id) && (() => {
+                                        const stop = trip.schedule!.stops.find((candidate) => candidate.employeeId === emp.id)!;
+                                        return <div className="text-[11px] text-[#0047B2] font-semibold mt-1">Planned {formatScheduleTime(stop.plannedAt)}{stop.liveEtaAt && stop.liveEtaAt !== stop.plannedAt ? ` · Live ETA ${formatScheduleTime(stop.liveEtaAt)}` : ""}</div>;
+                                      })()}
                                     </div>
                                   </div>
                                   <div className="text-[11px] text-[#595959] text-right shrink-0">
@@ -742,56 +962,18 @@ export default function TripManagement() {
         </div>
       )}
 
-      {/* Excel Import Preview Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-2xl w-[90vw] max-w-3xl max-h-[80vh] flex flex-col">
-            <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
-                <span className="text-[14px] font-semibold text-[#222]">Import Trips — {importRows.length} row{importRows.length !== 1 ? 's' : ''} found</span>
-              </div>
-              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#595959] hover:text-[#222]">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="overflow-auto flex-1 p-4">
-              <table className="w-full text-[12px] border-collapse">
-                <thead>
-                  <tr className="bg-[#F5F6FA]">
-                    {importRows[0] && Object.keys(importRows[0]).map((h) => (
-                      <th key={h} className="border border-[#E0E4E9] px-2 py-1 text-left font-medium text-[#555]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {importRows.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? '' : 'bg-[#F9F9F9]'}>
-                      {Object.values(row).map((v, j) => (
-                        <td key={j} className="border border-[#E0E4E9] px-2 py-1 text-[#444]">{String(v ?? '')}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t border-[#E0E4E9] bg-[#F9F9F9] flex items-center justify-between gap-2">
-              {importProgress && <span className="text-[12px] text-[#0047B2]">{importProgress}</span>}
-              <div className="flex gap-2 ml-auto">
-                <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="px-4 py-2 text-[13px] border border-[#E0E4E9] rounded hover:bg-[#F5F6FA]">Cancel</button>
-                <button
-                  onClick={handleConfirmImport}
-                  disabled={importing}
-                  className="px-4 py-2 text-[13px] text-white bg-[#18751C] rounded hover:bg-[#145a18] disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  {importing ? importProgress || 'Importing…' : `Import ${importRows.length} Trips`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ImportPreviewModal
+        open={showImportModal}
+        title="Import Trip Package"
+        rows={importRows}
+        columns={TRIP_HEADERS.map((key) => ({ key, required: ['Date', 'Type', 'Shift Time', 'Route Name', 'Employee IDs', 'Vehicle No'].includes(key) }))}
+        errors={importErrors}
+        saving={importing}
+        progress={importProgress}
+        onRowsChange={setImportRows}
+        onClose={() => { setShowImportModal(false); setImportRows([]); }}
+        onSave={handleConfirmImport}
+      />
     </>
   );
 }

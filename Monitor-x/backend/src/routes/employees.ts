@@ -4,6 +4,7 @@ import { Route } from '../models/Route.js';
 import { toEmployeeDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import type { Employee as EmployeeDTO } from '../types/dto.js';
+import { parseEmployeePoint, recommendRoute } from '../services/route-geometry.service.js';
 
 export const employeesRouter = Router();
 
@@ -25,19 +26,6 @@ function fromDTO(body: Partial<EmployeeDTO>): Record<string, unknown> {
   return out;
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// Beyond this the location is almost certainly wrong (different city), so reject.
-const MAX_ROUTE_DIST_KM = 50;
-
 // A mobile number can belong to only one employee (excludeEmpId skips the record being edited).
 async function assertContactUnique(contact: string | undefined, excludeEmpId?: string): Promise<void> {
   const c = contact?.trim();
@@ -52,30 +40,96 @@ async function assertContactUnique(contact: string | undefined, excludeEmpId?: s
 
 async function validateAndAutoAssignRoute(latLong: string | undefined): Promise<string | null> {
   if (!latLong?.trim()) return null;
-  const parts = latLong.split(',').map((s) => parseFloat(s.trim()));
-  if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-  const [empLat, empLng] = parts;
+  if (!parseEmployeePoint(latLong)) throw new HttpError(422, 'Enter valid latitude,longitude values');
+  const recommendation = await recommendRoute(latLong);
+  if (recommendation.confidence === 'high') return recommendation.routeName;
+  const alternatives = recommendation.candidates.map((candidate) =>
+    `${candidate.routeName} (${candidate.distanceMeters} m)`
+  ).join(', ');
+  throw new HttpError(422, alternatives ? `${recommendation.reason}. Candidates: ${alternatives}` : recommendation.reason);
+}
 
-  const routes = await Route.find({ destLat: { $ne: null }, destLng: { $ne: null } });
-  if (routes.length === 0) return null; // no routes configured yet — skip validation
+async function assertRouteExists(routeName: string | undefined): Promise<void> {
+  if (!routeName?.trim()) return;
+  if (!await Route.exists({ name: routeName.trim() })) throw new HttpError(422, `Route ${routeName.trim()} does not exist`);
+}
 
-  // Always connect the employee to the NEAREST route, however far.
-  let closestRoute: { name: string; dist: number } | null = null;
-  for (const r of routes) {
-    if (r.destLat == null || r.destLng == null) continue;
-    const dist = haversineKm(empLat, empLng, r.destLat, r.destLng);
-    if (!closestRoute || dist < closestRoute.dist) {
-      closestRoute = { name: r.name, dist };
+interface EmployeeBulkError {
+  row: number;
+  reasons: string[];
+}
+
+async function prepareEmployeeBulk(rows: Partial<EmployeeDTO>[]): Promise<{
+  prepared: Record<string, unknown>[];
+  errors: EmployeeBulkError[];
+}> {
+  const prepared: Record<string, unknown>[] = [];
+  const errors: EmployeeBulkError[] = [];
+  const seenIds = new Set<string>();
+  const seenContacts = new Set<string>();
+  const ids = rows.map((row) => row.id?.trim()).filter((value): value is string => Boolean(value));
+  const contacts = rows.map((row) => row.contact?.trim()).filter((value): value is string => Boolean(value));
+  const [existingEmployees, routes] = await Promise.all([
+    Employee.find({ $or: [{ empId: { $in: ids } }, { contact: { $in: contacts } }] })
+      .select('empId name contact')
+      .lean(),
+    Route.find().select('name').lean(),
+  ]);
+  const existingIds = new Set(existingEmployees.map((employee) => employee.empId.toLowerCase()));
+  const existingContacts = new Map(existingEmployees.map((employee) => [employee.contact, employee]));
+  const routeNames = new Set(routes.map((route) => route.name));
+
+  for (let index = 0; index < rows.length; index++) {
+    const body = rows[index];
+    const reasons: string[] = [];
+    const id = body.id?.trim() ?? '';
+    const name = body.name?.trim() ?? '';
+    const contact = body.contact?.trim() ?? '';
+    const idKey = id.toLowerCase();
+
+    if (!id) reasons.push('Employee ID is required');
+    if (!name) reasons.push('Name is required');
+    if (!contact) reasons.push('Contact is required');
+    if ((body.transportType ?? 'Office Transport') !== 'Self Transport' && !body.latLong?.trim()) {
+      reasons.push('Lat/Long is required for office transport');
     }
-  }
+    if (id && seenIds.has(idKey)) reasons.push('Duplicate employee ID in this file');
+    if (contact && seenContacts.has(contact)) reasons.push('Duplicate contact in this file');
+    if (id && existingIds.has(idKey)) reasons.push(`Employee ${id} already exists`);
+    const contactOwner = contact ? existingContacts.get(contact) : undefined;
+    if (contactOwner) reasons.push(`Contact is already registered to ${contactOwner.name} (${contactOwner.empId})`);
+    if (body.route?.trim() && !routeNames.has(body.route.trim())) reasons.push(`Route ${body.route.trim()} does not exist`);
 
-  if (closestRoute && closestRoute.dist > MAX_ROUTE_DIST_KM) {
-    throw new HttpError(
-      422,
-      `Employee location is ${closestRoute.dist.toFixed(0)} km from the nearest route (${closestRoute.name}) — the location looks wrong, please verify the address.`
-    );
+    if (body.latLong?.trim()) {
+      const coordinates = body.latLong.split(',').map((value) => Number(value.trim()));
+      if (coordinates.length !== 2 || coordinates.some((value) => !Number.isFinite(value))) {
+        reasons.push('Lat/Long must contain valid latitude,longitude values');
+      } else if (Math.abs(coordinates[0]) > 90 || Math.abs(coordinates[1]) > 180) {
+        reasons.push('Lat/Long is outside the valid coordinate range');
+      }
+    }
+
+    if (id) seenIds.add(idKey);
+    if (contact) seenContacts.add(contact);
+
+    let autoRoute: string | null = null;
+    if (reasons.length === 0 && !body.route?.trim()) {
+      try {
+        autoRoute = await validateAndAutoAssignRoute(body.latLong);
+      } catch (error) {
+        reasons.push((error as Error).message);
+      }
+    }
+
+    if (reasons.length > 0) {
+      errors.push({ row: index + 2, reasons });
+      continue;
+    }
+    const data = fromDTO({ ...body, id, name, contact });
+    if (autoRoute && !body.route) data.route = autoRoute;
+    prepared.push(data);
   }
-  return closestRoute?.name ?? null;
+  return { prepared, errors };
 }
 
 employeesRouter.get(
@@ -83,6 +137,35 @@ employeesRouter.get(
   asyncHandler(async (_req, res) => {
     const docs = await Employee.find().sort({ empId: 1 });
     res.json(docs.map(toEmployeeDTO));
+  })
+);
+
+employeesRouter.post(
+  '/bulk/validate',
+  asyncHandler(async (req, res) => {
+    const { employees } = req.body as { employees?: Partial<EmployeeDTO>[] };
+    if (!Array.isArray(employees) || employees.length === 0) {
+      throw new HttpError(400, 'employees array is required');
+    }
+    const result = await prepareEmployeeBulk(employees);
+    res.json({ valid: result.errors.length === 0, total: employees.length, errors: result.errors });
+  })
+);
+
+employeesRouter.post(
+  '/bulk',
+  asyncHandler(async (req, res) => {
+    const { employees } = req.body as { employees?: Partial<EmployeeDTO>[] };
+    if (!Array.isArray(employees) || employees.length === 0) {
+      throw new HttpError(400, 'employees array is required');
+    }
+    const result = await prepareEmployeeBulk(employees);
+    if (result.errors.length > 0) {
+      res.status(422).json({ error: 'Import contains invalid employees', created: 0, failed: result.errors.length, errors: result.errors });
+      return;
+    }
+    await Employee.insertMany(result.prepared);
+    res.status(201).json({ created: result.prepared.length, failed: 0, errors: [] });
   })
 );
 
@@ -103,8 +186,12 @@ employeesRouter.post(
     const exists = await Employee.findOne({ empId: body.id });
     if (exists) throw new HttpError(409, `Employee ${body.id} already exists`);
     await assertContactUnique(body.contact);
+    await assertRouteExists(body.route);
+    if (body.transportType === 'Office Transport' && !body.latLong?.trim()) {
+      throw new HttpError(422, 'Fetch or enter the employee location before saving office transport');
+    }
 
-    const autoRoute = await validateAndAutoAssignRoute(body.latLong);
+    const autoRoute = body.route ? null : await validateAndAutoAssignRoute(body.latLong);
     const data = fromDTO(body);
     if (autoRoute && !body.route) data.route = autoRoute;
 
@@ -132,7 +219,9 @@ employeesRouter.put(
   asyncHandler(async (req, res) => {
     const body = req.body as Partial<EmployeeDTO>;
     await assertContactUnique(body.contact, req.params.id);
-    const autoRoute = await validateAndAutoAssignRoute(body.latLong);
+    await assertRouteExists(body.route);
+    const shouldRecalculateRoute = body.latLong !== undefined && !body.route;
+    const autoRoute = shouldRecalculateRoute ? await validateAndAutoAssignRoute(body.latLong) : null;
     const data = fromDTO(body);
     if (autoRoute && !body.route) data.route = autoRoute;
 

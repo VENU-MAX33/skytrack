@@ -40,14 +40,6 @@ export function shareLocation(tripId: string, lat: number, lng: number): Promise
   return apiPost<void>('/api/employee/location', { tripId, lat, lng });
 }
 
-export function submitLocationRequest(data: {
-  requestedAddress: string;
-  requestedLatLong: string;
-  note?: string;
-}): Promise<unknown> {
-  return apiPost('/api/employee/location-request', data);
-}
-
 // Company info for the About Us page — accessible to any authenticated role.
 export function getCompanyConfig(): Promise<CompanyConfig> {
   return apiGet<CompanyConfig>('/api/company-config');

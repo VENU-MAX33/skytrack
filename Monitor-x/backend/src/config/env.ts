@@ -57,4 +57,7 @@ export const env = {
     senderId: process.env.MSG91_SENDER_ID ?? '',
     templateId: process.env.MSG91_TEMPLATE_ID ?? '',
   },
+  osrmBaseUrl: process.env.OSRM_BASE_URL ?? 'https://router.project-osrm.org',
+  routeCorridorMaxMeters: Number(process.env.ROUTE_CORRIDOR_MAX_METERS ?? 2000),
+  routeAmbiguityMeters: Number(process.env.ROUTE_AMBIGUITY_METERS ?? 250),
 };

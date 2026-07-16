@@ -32,11 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => setUser(null), []);
 
-  useEffect(() => {
-    window.addEventListener('auth:unauthorized', logout);
-    return () => window.removeEventListener('auth:unauthorized', logout);
-  }, [logout]);
-
   const login = useCallback(async (phone: string, code: string) => {
     const { token, user: u } = await verifyOtp(phone, code);
     localStorage.setItem(TOKEN_KEY, token);

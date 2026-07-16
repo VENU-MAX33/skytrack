@@ -34,7 +34,7 @@ export interface DriverImportResult {
   created: number;
   skipped: number;
   failed: number;
-  errors: { row: number; reason: string }[];
+  errors: { row: number; reasons: string[] }[];
 }
 
 export async function importDrivers(drivers: Partial<Driver>[]): Promise<DriverImportResult> {

@@ -5,7 +5,6 @@ import { Driver } from '../models/Driver.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { Employee } from '../models/Employee.js';
 import { SOSAlert } from '../models/SOSAlert.js';
-import { LocationRequest } from '../models/LocationRequest.js';
 import { toTripReportRow } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { STATUS_BUCKETS, localToday, type TripStatus } from '../lib/statusBuckets.js';
@@ -92,8 +91,7 @@ function summarize(period: ReportPeriod, from: string, to: string, label: string
 }
 
 // ---------------------------------------------------------------------------
-// Generic report types: drivers, cabs (vehicles), employees, SOS alerts and
-// employee location-update requests from the employee app.
+// Generic report types: drivers, cabs (vehicles), employees and SOS alerts.
 // ---------------------------------------------------------------------------
 
 type Row = Record<string, string | number>;
@@ -197,30 +195,6 @@ const REPORT_TYPES: Record<string, ReportTypeDef> = {
         location: s.location, reason: s.reason, status: s.status,
         acknowledgedBy: s.acknowledgedBy ?? '', acknowledgedAt: iso(s.acknowledgedAt),
         resolvedAt: iso(s.resolvedAt),
-      }));
-    },
-  },
-  'location-updates': {
-    dated: true,
-    columns: [
-      ['requestedAt', 'Requested At'], ['empId', 'Employee ID'], ['empName', 'Employee'],
-      ['empContact', 'Contact'], ['currentAddress', 'Current Address'],
-      ['currentLatLong', 'Current Lat/Long'], ['requestedAddress', 'New Address'],
-      ['requestedLatLong', 'New Lat/Long'], ['status', 'Status'],
-      ['reviewedBy', 'Reviewed By'], ['reviewedAt', 'Reviewed At'], ['note', 'Note'],
-    ],
-    load: async (from, to) => {
-      const docs = await LocationRequest.find({ requestedAt: dateWindow(from, to) })
-        .sort({ requestedAt: 1 })
-        .populate<{ employeeId: { empId: string; name: string; contact: string } | null }>('employeeId');
-      return docs.map((r) => ({
-        requestedAt: iso(r.requestedAt),
-        empId: r.employeeId?.empId ?? '', empName: r.employeeId?.name ?? '',
-        empContact: r.employeeId?.contact ?? '',
-        currentAddress: r.currentAddress, currentLatLong: r.currentLatLong,
-        requestedAddress: r.requestedAddress, requestedLatLong: r.requestedLatLong,
-        status: r.status, reviewedBy: r.reviewedBy ?? '', reviewedAt: iso(r.reviewedAt),
-        note: r.note ?? '',
       }));
     },
   },

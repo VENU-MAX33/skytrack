@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FileText, Download, Bus, User, Car, Users, Siren, MapPin } from "lucide-react";
+import { FileText, Download, Bus, User, Car, Users, Siren } from "lucide-react";
 import { getTripReport, getGenericReport, downloadReport } from "../api/reports";
 import type { ReportPeriod, ReportSummary, ReportType, GenericReport } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -23,7 +23,6 @@ const REPORT_TABS: { key: ReportType; label: string; icon: React.ReactNode; date
   { key: "cabs", label: "Cabs", icon: <Car className="w-4 h-4" />, dated: false },
   { key: "employees", label: "Employees", icon: <Users className="w-4 h-4" />, dated: false },
   { key: "sos", label: "SOS Alerts", icon: <Siren className="w-4 h-4" />, dated: true },
-  { key: "location-updates", label: "Location Updates", icon: <MapPin className="w-4 h-4" />, dated: true },
 ];
 
 const TRIP_COLUMNS = [
@@ -69,12 +68,6 @@ const GENERIC_COLUMNS: Record<Exclude<ReportType, "trips">, { key: string; heade
     { key: "driverName", header: "Driver" }, { key: "location", header: "Location" },
     { key: "reason", header: "Reason" }, { key: "status", header: "Status" },
     { key: "acknowledgedBy", header: "Ack. By" },
-  ],
-  "location-updates": [
-    { key: "requestedAt", header: "Requested At" }, { key: "empId", header: "Emp ID" },
-    { key: "empName", header: "Employee" }, { key: "requestedAddress", header: "New Address" },
-    { key: "requestedLatLong", header: "New Lat/Long" }, { key: "status", header: "Status" },
-    { key: "reviewedBy", header: "Reviewed By" },
   ],
 };
 

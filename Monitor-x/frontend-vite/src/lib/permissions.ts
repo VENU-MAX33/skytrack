@@ -2,15 +2,12 @@ import type { AdminRole } from '../context/AuthContext';
 
 // Paths staff cannot reach at all. Route Management (and RouteForm reused
 // under the Master Routing prefix — same create/edit-route capability) and
-// Reports are blocked by design; Location Requests is blocked because its
-// backend (location-requests.ts) already gates every verb to admin only —
-// staff would otherwise land on a page that 403s on load.
+// Reports are blocked by design because they are admin-only.
 const STAFF_BLOCKED_PREFIXES = [
   '/route-management',
   '/master-routing/new',
   '/master-routing/edit',
   '/reports',
-  '/location-requests',
 ];
 
 // Paths only the main admin can reach (staff never sees these in the Sidebar either).

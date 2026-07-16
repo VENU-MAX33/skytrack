@@ -4,12 +4,14 @@ import { toDriverTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { localToday } from '../lib/statusBuckets.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
+import { tripCompletionDeadline } from '../services/trip-alert.service.js';
 import { emitOtpSent, emitEmployeeVerified, emitTripStatus } from '../websocket/index.js';
 
 export const driverTripsRouter = Router();
 
 const TRIP_POPULATE = 'vehicleId driverId routeId employeeIds';
 type PopulatedTrip = Parameters<typeof toDriverTripDTO>[0];
+const ONGOING_STATUSES = ['Trip Started', 'Pickup Started', 'Drop Started'];
 
 // Loads a trip owned by the authenticated driver (populated), or throws 404.
 async function loadOwnedTrip(tripId: string, driverId: string): Promise<PopulatedTrip> {
@@ -20,6 +22,12 @@ async function loadOwnedTrip(tripId: string, driverId: string): Promise<Populate
 
 function employeeRoomIds(trip: PopulatedTrip): string[] {
   return trip.employeeIds.map((e) => e._id.toString());
+}
+
+function assertTripStarted(trip: PopulatedTrip): void {
+  if (!ONGOING_STATUSES.includes(trip.status) || trip.completedAt) {
+    throw new HttpError(409, 'Start the trip before sending or verifying employee OTPs, or completing it');
+  }
 }
 
 // GET /api/driver/trips — frozen trips assigned to this driver (today + upcoming)
@@ -58,6 +66,7 @@ driverTripsRouter.post(
   '/:tripId/send-otp/:empId',
   asyncHandler(async (req, res) => {
     const trip = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
+    assertTripStarted(trip);
     const emp = findTripEmployee(trip, req.params.empId);
     if (!emp.contact) throw new HttpError(422, 'Employee has no phone number on file');
 
@@ -82,6 +91,7 @@ driverTripsRouter.post(
     if (!code) throw new HttpError(400, 'OTP code is required');
 
     const trip = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
+    assertTripStarted(trip);
     const emp = findTripEmployee(trip, req.params.empId);
 
     await verifyOtp({ purpose: 'pickup', phone: emp.contact, code, tripId: trip._id, employeeId: emp._id });
@@ -108,6 +118,9 @@ driverTripsRouter.put(
   '/:tripId/start',
   asyncHandler(async (req, res) => {
     const trip = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
+    if (trip.completedAt || ONGOING_STATUSES.includes(trip.status)) {
+      throw new HttpError(409, 'This trip has already been started or completed');
+    }
     await Trip.updateOne(
       { _id: trip._id },
       { status: 'Trip Started', startedAt: new Date() }
@@ -124,9 +137,20 @@ driverTripsRouter.put(
   '/:tripId/complete',
   asyncHandler(async (req, res) => {
     const trip = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
+    assertTripStarted(trip);
+    const verified = new Set(trip.verifiedEmployees.map((employeeId) => employeeId.toString()));
+    const pending = trip.employeeIds.filter((employee) => !verified.has(employee._id.toString()));
+    if (pending.length > 0) {
+      throw new HttpError(
+        409,
+        `Cannot end trip: OTP verification is pending for ${pending.length} employee(s): ${pending.map((e) => `${e.name} (${e.empId})`).join(', ')}`
+      );
+    }
+    const deadline = tripCompletionDeadline(trip);
+    const completedLate = deadline !== null && Date.now() > deadline.getTime();
     await Trip.updateOne(
       { _id: trip._id },
-      { status: 'Completed', completedAt: new Date() }
+      { status: completedLate ? 'Completed Late' : 'Completed', completedAt: new Date() }
     );
     const fresh = await loadOwnedTrip(req.params.tripId, req.auth!.sub);
     const dto = toDriverTripDTO(fresh);

@@ -18,10 +18,6 @@ function authHeaders(): Record<string, string> {
 }
 
 async function handle<T>(res: Response, method: string, path: string): Promise<T> {
-  if (res.status === 401) {
-    localStorage.removeItem(TOKEN_KEY);
-    window.dispatchEvent(new Event('auth:unauthorized'));
-  }
   if (!res.ok) {
     let message = `${method} ${path} failed: ${res.status}`;
     try {

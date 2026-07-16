@@ -1,32 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Users, Plus, Search, Download, Edit, Trash2, Upload, FileSpreadsheet, FileText, X, Eye } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getEmployees, deleteEmployee } from "../api";
+import { getEmployees, deleteEmployee, getRoutes, importEmployees } from "../api";
 import type { Employee } from "../api";
 import Pagination from "../components/Pagination";
 import Modal from "../components/Modal";
 import { exportToCsv } from "../lib/exportCsv";
-import { exportToExcel, parseExcel, downloadTemplate } from "../lib/excel";
+import { exportToExcel, parseExcel, downloadTemplate, type ExcelRow } from "../lib/excel";
+import ImportPreviewModal from "../components/ImportPreviewModal";
+import { EMPLOYEE_EXAMPLE, EMPLOYEE_HEADERS, IMPORT_ALIASES, bulkErrorsFromApi, employeeFromRow, rowErrors } from "../lib/importSchemas";
 import { getEmployeeDocs, uploadEmployeeDoc, deleteEmployeeDoc, getEmployeeDocFull } from "../api/employeeDocuments";
 import type { EmployeeDocumentDTO } from "../api/types";
 import { useToast } from "../context/ToastContext";
 
 const PAGE_SIZE = 20;
-
-interface EmpImportRow {
-  'Emp ID'?: string;
-  Name?: string;
-  Gender?: string;
-  Contact?: string;
-  Email?: string;
-  Address?: string;
-  Location?: string;
-  'Lat/Long'?: string;
-  'Shift Login'?: string;
-  'Shift Logout'?: string;
-  Route?: string;
-  Active?: string;
-}
 
 export default function EmployeeManagement() {
   const toast = useToast();
@@ -40,10 +27,12 @@ export default function EmployeeManagement() {
 
   // Excel import
   const importRef = useRef<HTMLInputElement>(null);
-  const [importRows, setImportRows] = useState<EmpImportRow[]>([]);
+  const [importRows, setImportRows] = useState<ExcelRow[]>([]);
+  const [routeNames, setRouteNames] = useState<Set<string>>(new Set());
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
+  const [serverImportErrors, setServerImportErrors] = useState<Record<number, string[]>>({});
 
   // Document management
   const [docEmpId, setDocEmpId] = useState<string | null>(null);
@@ -56,8 +45,11 @@ export default function EmployeeManagement() {
   const docFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getEmployees()
-      .then(setEmployees)
+    Promise.all([getEmployees(), getRoutes()])
+      .then(([employeeData, routeData]) => {
+        setEmployees(employeeData);
+        setRouteNames(new Set(routeData.map((route) => route.name)));
+      })
       .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load employees'));
   }, [toast]);
 
@@ -136,49 +128,56 @@ export default function EmployeeManagement() {
 
   async function handleImportFile(file: File) {
     try {
-      const rows = await parseExcel<EmpImportRow>(file);
-      if (rows.length === 0) { toast.error('No rows found in file'); return; }
+      const rows = await parseExcel(file, { aliases: IMPORT_ALIASES });
+      if (rows.length === 0) { toast.error('No data rows found. Download the Employee template and add rows below its header.'); return; }
       setImportRows(rows);
+      setServerImportErrors({});
       setShowImportModal(true);
-    } catch {
-      toast.error('Failed to parse Excel file');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to parse Excel file');
     }
   }
 
+  const importErrors = useMemo(() => {
+    const currentIds = new Set(employees.map((employee) => employee.id.toLowerCase()));
+    const currentContacts = new Set(employees.map((employee) => employee.contact).filter(Boolean));
+    const localErrors = rowErrors(importRows, (row, index) => {
+      const employee = employeeFromRow(row);
+      const errors: string[] = [];
+      if (!employee.id) errors.push('Employee ID is required');
+      if (!employee.name) errors.push('Name is required');
+      if (!employee.contact) errors.push('Contact is required');
+      if (employee.transportType !== 'Self Transport' && !employee.latLong) errors.push('Lat/Long is required for office transport');
+      if (employee.id && currentIds.has(employee.id.toLowerCase())) errors.push('Employee ID already exists');
+      if (employee.contact && currentContacts.has(employee.contact)) errors.push('Contact already exists');
+      if (employee.id && importRows.slice(0, index).some((item) => employeeFromRow(item).id.toLowerCase() === employee.id.toLowerCase())) errors.push('Duplicate Employee ID in file');
+      if (employee.contact && importRows.slice(0, index).some((item) => employeeFromRow(item).contact === employee.contact)) errors.push('Duplicate contact in file');
+      if (employee.route && !routeNames.has(employee.route)) errors.push(`Unknown route: ${employee.route}`);
+      if (employee.latLong) {
+        const coordinates = employee.latLong.split(',').map(Number);
+        if (coordinates.length !== 2 || coordinates.some((coordinate) => !Number.isFinite(coordinate)) || Math.abs(coordinates[0]) > 90 || Math.abs(coordinates[1]) > 180) errors.push('Invalid Lat/Long');
+      }
+      return errors;
+    });
+    return Object.fromEntries(importRows.map((_, index) => [index, [...(localErrors[index] ?? []), ...(serverImportErrors[index] ?? [])]]));
+  }, [employees, importRows, routeNames, serverImportErrors]);
+
   async function handleConfirmImport() {
     setImporting(true);
-    let ok = 0; let fail = 0;
-    for (let i = 0; i < importRows.length; i++) {
-      const row = importRows[i];
-      setImportProgress(`Processing ${i + 1}/${importRows.length}…`);
-      try {
-        const res = await fetch('/api/employees', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('auth_jwt')}` },
-          body: JSON.stringify({
-            empId: row['Emp ID'] ?? '',
-            name: row.Name ?? '',
-            gender: row.Gender ?? 'Male',
-            contact: row.Contact ?? '',
-            email: row.Email ?? '',
-            address: row.Address ?? '',
-            location: row.Location ?? '',
-            latLong: row['Lat/Long'] ?? '',
-            shiftLogin: row['Shift Login'] ?? '',
-            shiftLogout: row['Shift Logout'] ?? '',
-            route: row.Route ?? '',
-            active: row.Active ?? 'Yes',
-          }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        ok++;
-      } catch {
-        fail++;
-      }
+    setImportProgress(`Validating and saving ${importRows.length} employees…`);
+    try {
+      const result = await importEmployees(importRows.map(employeeFromRow));
+      setShowImportModal(false);
+      setImportRows([]);
+      toast.success(`${result.created} employees imported successfully`);
+      setEmployees(await getEmployees());
+    } catch (error) {
+      setServerImportErrors(bulkErrorsFromApi(error));
+      toast.error(`Employee import failed: ${(error as Error).message}`);
+    } finally {
+      setImporting(false);
+      setImportProgress('');
     }
-    setImporting(false); setImportProgress(''); setShowImportModal(false); setImportRows([]);
-    toast.success(`Import done: ${ok} created${fail > 0 ? `, ${fail} failed` : ''}`);
-    getEmployees().then(setEmployees);
   }
 
   // Documents
@@ -260,7 +259,7 @@ export default function EmployeeManagement() {
             </button>
           )}
           <button
-            onClick={() => downloadTemplate('employees_template.xlsx', ['Emp ID','Name','Gender','Contact','Email','Address','Location','Lat/Long','Shift Login','Shift Logout','Route','Active'])}
+            onClick={() => downloadTemplate('employees_template.xlsx', EMPLOYEE_HEADERS, EMPLOYEE_EXAMPLE)}
             className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
             title="Download Excel template"
           >
@@ -456,55 +455,18 @@ export default function EmployeeManagement() {
         <Pagination total={filtered.length} page={page} pageSize={PAGE_SIZE} onChange={setPage} />
       </div>
 
-      {/* Excel Import Preview Modal */}
-      <Modal
+      <ImportPreviewModal
         open={showImportModal}
         onClose={() => { setShowImportModal(false); setImportRows([]); }}
-        title={`Import Employees — ${importRows.length} rows found`}
-        panelClassName="w-[92vw] max-w-4xl max-h-[80vh] flex flex-col"
-      >
-            <div className="p-4 border-b border-[#E0E4E9] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
-                <span className="text-[14px] font-semibold text-[#222]">Import Employees — {importRows.length} row{importRows.length !== 1 ? 's' : ''} found</span>
-              </div>
-              <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="text-[#595959] hover:text-[#222]"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="overflow-auto flex-1 p-4">
-              <table className="w-full text-[12px] border-collapse">
-                <thead>
-                  <tr className="bg-[#F5F6FA]">
-                    {importRows[0] && Object.keys(importRows[0]).map((h) => (
-                      <th key={h} className="border border-[#E0E4E9] px-2 py-1 text-left font-medium text-[#555]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {importRows.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? '' : 'bg-[#F9F9F9]'}>
-                      {Object.values(row).map((v, j) => (
-                        <td key={j} className="border border-[#E0E4E9] px-2 py-1 text-[#444]">{String(v ?? '')}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t border-[#E0E4E9] bg-[#F9F9F9] flex items-center justify-between gap-2">
-              {importProgress && <span className="text-[12px] text-[#0047B2]">{importProgress}</span>}
-              <div className="flex gap-2 ml-auto">
-                <button onClick={() => { setShowImportModal(false); setImportRows([]); }} className="px-4 py-2 text-[13px] border border-[#E0E4E9] rounded hover:bg-[#F5F6FA]">Cancel</button>
-                <button
-                  onClick={handleConfirmImport}
-                  disabled={importing}
-                  className="px-4 py-2 text-[13px] text-white bg-[#18751C] rounded hover:bg-[#145a18] disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  {importing ? importProgress || 'Importing…' : `Import ${importRows.length} Employees`}
-                </button>
-              </div>
-            </div>
-      </Modal>
+        title="Import Employees"
+        rows={importRows}
+        columns={EMPLOYEE_HEADERS.map((key) => ({ key, required: ['Employee ID', 'Name', 'Contact'].includes(key) }))}
+        errors={importErrors}
+        saving={importing}
+        progress={importProgress}
+        onRowsChange={(rows) => { setImportRows(rows); setServerImportErrors({}); }}
+        onSave={handleConfirmImport}
+      />
 
       {/* Document Management Modal */}
       <Modal

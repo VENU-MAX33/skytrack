@@ -81,8 +81,15 @@ export interface Route {
   name: string;
   count: number;
   type: string;
+  destinationAddress: string;
   destLat: number | null;
   destLng: number | null;
+  dropPath: { lat: number; lng: number }[];
+  pickupPath: { lat: number; lng: number }[];
+  geometryStatus: 'pending' | 'ready' | 'error';
+  geometryProvider: string;
+  geometryUpdatedAt: string | null;
+  geometryError: string;
 }
 
 export interface CompanyConfig {
@@ -113,6 +120,31 @@ export interface Trip {
   frozen?: boolean;
   employees?: Employee[];
   verifiedEmployeeIds?: string[]; // empIds OTP-verified by the driver
+  schedule: TripSchedule | null;
+}
+
+export interface TripScheduleStop {
+  employeeId: string;
+  employeeName: string;
+  sequence: number;
+  plannedAt: string;
+  liveEtaAt: string | null;
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+export interface TripSchedule {
+  shiftDeadlineAt: string | null;
+  scheduledStartAt: string | null;
+  driverReportAt: string | null;
+  scheduledEndAt: string | null;
+  mode: 'auto' | 'manual';
+  calculatedAt: string | null;
+  etaUpdatedAt: string | null;
+  distanceMeters: number;
+  durationSeconds: number;
+  trafficModel: string;
+  stops: TripScheduleStop[];
 }
 
 // ---- Driver/Employee app DTOs ----
@@ -146,6 +178,7 @@ export interface DriverTrip {
   startedAt: string | null;
   completedAt: string | null;
   employees: DriverTripEmployee[];
+  schedule: TripSchedule | null;
 }
 
 export interface EmployeeTrip {
@@ -166,6 +199,8 @@ export interface EmployeeTrip {
   completedAt: string | null;
   verified: boolean; // is the requesting employee verified on this trip
   driver: { name: string; contact: string };
+  // Contains only this employee's stop; other passengers' times stay private.
+  schedule: TripSchedule | null;
 }
 
 export interface SosAlert {
@@ -310,20 +345,6 @@ export interface EmployeeLocationUpdate {
   lng: number;
   timestamp: string;
   driverMongoId?: string;
-}
-
-export interface LocationRequestDTO {
-  id: string;
-  employee: { id: string; name: string; contact: string };
-  currentAddress: string;
-  currentLatLong: string;
-  requestedAddress: string;
-  requestedLatLong: string;
-  status: string;
-  requestedAt: string;
-  reviewedAt: string | null;
-  reviewedBy: string;
-  note: string;
 }
 
 export interface EmployeeDocumentDTO {

@@ -89,8 +89,10 @@ function jitter(base: number, i: number, scale = 0.01): number {
   return Number((base + Math.sin(i * 7.3) * scale).toFixed(6));
 }
 
-async function seed() {
-  await connectDb();
+export async function seed(shouldDisconnect = true) {
+  if (mongoose.connection.readyState !== 1) {
+    await connectDb();
+  }
 
   console.log('Dropping existing collections...');
   await Promise.all([
@@ -330,10 +332,21 @@ async function seed() {
   console.log(`  Employee: <empId e.g. EMP001> / ${env.defaultEmployeePassword}`);
   console.log(`  Driver:   <phone e.g. ${drivers[0].contact}> -> set password on first login`);
 
-  await mongoose.disconnect();
+  if (shouldDisconnect) {
+    await mongoose.disconnect();
+  }
 }
 
-seed().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+import { fileURLToPath } from 'url';
+const isMain = process.argv[1] && (
+  process.argv[1] === fileURLToPath(import.meta.url) ||
+  process.argv[1].endsWith('seed.ts') ||
+  process.argv[1].endsWith('seed.js')
+);
+
+if (isMain) {
+  seed().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

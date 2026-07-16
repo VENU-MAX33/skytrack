@@ -14,6 +14,9 @@ export default function TripNotification() {
   }, [newTrip, clearNewTrip]);
 
   if (!newTrip) return null;
+  const format = (value: string | null | undefined) => value
+    ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+    : '—';
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-[420px]">
@@ -22,7 +25,10 @@ export default function TripNotification() {
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-[14px]">New trip assigned!</div>
           <div className="text-[12px] opacity-85 mt-0.5">
-            {newTrip.id} · {newTrip.type} · {newTrip.shiftTime}
+            {newTrip.id} · {newTrip.type} · {newTrip.route || newTrip.location}
+          </div>
+          <div className="text-[11px] opacity-90 mt-1">
+            Start by {format(newTrip.schedule?.driverReportAt)} · Final arrival {format(newTrip.schedule?.scheduledEndAt)} · {newTrip.employees.length} employee(s)
           </div>
         </div>
         <div className="flex gap-2 items-center shrink-0">

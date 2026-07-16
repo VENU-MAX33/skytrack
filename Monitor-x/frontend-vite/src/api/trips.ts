@@ -48,6 +48,24 @@ export async function updateTripEscort(
   return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/escort`, { escort, escortName });
 }
 
+export async function recalculateTripSchedule(tripId: string): Promise<Trip> {
+  return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/schedule/recalculate`, {});
+}
+
+export interface TripScheduleOverride {
+  driverReportAt?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
+  stops?: { employeeId: string; plannedAt: string }[];
+}
+
+export async function updateTripSchedule(
+  tripId: string,
+  schedule: TripScheduleOverride
+): Promise<Trip> {
+  return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/schedule`, schedule);
+}
+
 // Only unlocked (not frozen) trips can be deleted; the backend enforces this too.
 export async function deleteTrip(tripId: string): Promise<void> {
   return apiDelete(`/api/trips/${encodeURIComponent(tripId)}`);

@@ -48,14 +48,30 @@ export function getIo(): IOServer {
 
 /** Notify a frozen trip's driver and employees, plus admins. */
 export function emitTripFrozen(payload: {
-  trip: unknown;
+  adminTrip: unknown;
+  driverTrip: unknown;
+  driverId: string;
+  employeeTrips: { employeeId: string; trip: unknown }[];
+}): void {
+  const i = getIo();
+  i.to(rooms.driver(payload.driverId)).emit('trip:frozen', payload.driverTrip);
+  payload.employeeTrips.forEach(({ employeeId, trip }) =>
+    i.to(rooms.employee(employeeId)).emit('trip:frozen', trip)
+  );
+  i.to(rooms.admin).emit('trip:frozen', payload.adminTrip);
+}
+
+/** Tell all trip participants to refresh their displayed planned/live times. */
+export function emitTripScheduleUpdate(payload: {
+  tripId: string;
   driverId: string;
   employeeIds: string[];
 }): void {
   const i = getIo();
-  i.to(rooms.driver(payload.driverId)).emit('trip:frozen', payload.trip);
-  payload.employeeIds.forEach((id) => i.to(rooms.employee(id)).emit('trip:frozen', payload.trip));
-  i.to(rooms.admin).emit('trip:frozen', payload.trip);
+  const event = { tripId: payload.tripId };
+  i.to(rooms.driver(payload.driverId)).emit('trip:schedule', event);
+  payload.employeeIds.forEach((id) => i.to(rooms.employee(id)).emit('trip:schedule', event));
+  i.to(rooms.admin).emit('trip:schedule', event);
 }
 
 /** Broadcast a trip status change (started/completed/etc.) to all parties. */
@@ -131,11 +147,6 @@ export function emitEmployeeLocation(payload: {
   i.to(rooms.admin).emit('employee:location', payload);
 }
 
-/** Notify admin + employee that a location change request has been submitted. */
-export function emitLocationRequestNew(payload: unknown): void {
-  getIo().to(rooms.admin).emit('location:request:new', payload);
-}
-
 /** Push a new dashboard notification (SOS, location change, …) to admins. */
 export function emitNotification(payload: unknown): void {
   getIo().to(rooms.admin).emit('notification:new', payload);
@@ -155,14 +166,4 @@ export function emitVehiclePosition(payload: {
 /** Notify admin that a new employee feedback entry has been submitted. */
 export function emitFeedbackNew(payload: unknown): void {
   getIo().to(rooms.admin).emit('feedback:new', payload);
-}
-
-/** Notify admin + the requesting employee that their location request was approved. */
-export function emitLocationRequestApproved(payload: {
-  employeeMongoId: string;
-  request: unknown;
-}): void {
-  const i = getIo();
-  i.to(rooms.admin).emit('location:request:approved', payload.request);
-  i.to(rooms.employee(payload.employeeMongoId)).emit('location:request:approved', payload.request);
 }

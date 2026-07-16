@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Users, Search, X } from "lucide-react";
 import { getEmployees, getRosters, saveRosters, deleteRosters } from "../api";
 import type { Employee, RosterEntry } from "../api";
+import type { RosterSaveEntry } from "../api/rosters";
 import { useToast } from "../context/ToastContext";
 import { localToday } from "../lib/tripStatus";
 
@@ -31,6 +32,7 @@ function formatDateDisplay(dateStr: string) {
 
 export default function Rostering() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const toast = useToast();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -89,7 +91,7 @@ export default function Rostering() {
 
   const dates = useMemo(() => {
     const arr = [];
-    let curr = new Date(fromDate);
+    const curr = new Date(fromDate);
     const end = new Date(toDate);
     while (curr <= end) {
       arr.push(curr.toISOString().split("T")[0]);
@@ -226,7 +228,7 @@ export default function Rostering() {
     }
     setSaving(true);
     try {
-      const payloads: any[] = [];
+      const payloads: (RosterSaveEntry & { date: string; tripType: 'pickup' | 'drop' })[] = [];
       for (const empId in rosterConfigs) {
         for (const date in rosterConfigs[empId]) {
           const cfg = rosterConfigs[empId][date];
@@ -242,7 +244,10 @@ export default function Rostering() {
       const saved = await saveRosters(payloads);
       toast.success(`Saved ${saved.length} roster entries`);
       setRosterConfigs({});
-      getRosters({ fromDate, toDate }).then(setSavedRosters);
+      const first = payloads[0];
+      navigate(
+        `/trip-management?date=${encodeURIComponent(first.date)}&type=${first.tripType === "drop" ? "drop" : "pick"}`
+      );
     } catch (err) {
       toast.error(`Could not save rosters: ${(err as Error).message}`);
     } finally {
@@ -328,7 +333,7 @@ export default function Rostering() {
                   const saved = savedByEmpAndDate.get(emp.id)?.get(date);
                   let display = "";
                   let bgColor = "";
-                  let textColor = "#222222";
+                  const textColor = "#222222";
 
                   if (cfg) {
                     if (cfg.tripType === "both") display = `${cfg.timing} | ${cfg.dropTiming}`;
@@ -417,7 +422,15 @@ export default function Rostering() {
             <div className="p-4 space-y-4">
               <div className="flex flex-col gap-1">
                 <label htmlFor="roster-form-triptype" className="text-[12px] font-medium text-[#595959]">Trip Type</label>
-                <select id="roster-form-triptype" value={formTripType} onChange={(e) => setFormTripType(e.target.value as any)} className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]">
+                <select
+                  id="roster-form-triptype"
+                  value={formTripType}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'pickup' || value === 'drop' || value === 'both') setFormTripType(value);
+                  }}
+                  className="border border-[#E0E4E9] rounded px-3 py-2 text-[13px]"
+                >
                   <option value="both">Both (Login & Logout)</option>
                   <option value="pickup">Login (Pickup)</option>
                   <option value="drop">Logout (Drop)</option>

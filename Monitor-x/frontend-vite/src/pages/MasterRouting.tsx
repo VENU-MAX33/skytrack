@@ -10,7 +10,6 @@ import { getRoutes, getEmployees, getCompanyConfig, saveRosters } from "../api";
 import type { Route, Employee, CompanyConfig } from "../api";
 import { localToday } from "../lib/tripStatus";
 import { routeColor } from "../lib/routeColors";
-import { fetchRoadPath, type LatLng } from "../lib/osrm";
 import { useToast } from "../context/ToastContext";
 
 /** Teardrop map pin with the employee's M/F letter, coloured by route. */
@@ -87,7 +86,6 @@ export default function MasterRouting() {
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
   const [selectedRoutes, setSelectedRoutes] = useState<Set<number>>(new Set());
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
-  const [roadPaths, setRoadPaths] = useState<Record<number, LatLng[]>>({});
 
   useEffect(() => {
     getRoutes().then(setRoutes);
@@ -96,22 +94,6 @@ export default function MasterRouting() {
       if (cfg.lat && cfg.lng) setCompany(cfg);
     });
   }, []);
-
-  // Fetch actual road geometry (company → destination) for each route, sequentially.
-  useEffect(() => {
-    if (!company?.lat || !company?.lng || routes.length === 0) return;
-    let cancelled = false;
-    const from: LatLng = [company.lat, company.lng];
-    (async () => {
-      for (const r of routes) {
-        if (!r.destLat || !r.destLng) continue;
-        const path = await fetchRoadPath(from, [r.destLat, r.destLng]);
-        if (cancelled) return;
-        setRoadPaths((prev) => ({ ...prev, [r.id]: path }));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [company, routes]);
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) ?? null;
   const routeEmployees = selectedRoute
@@ -122,26 +104,6 @@ export default function MasterRouting() {
   const flyCoords: [number, number] | null = selectedEmp
     ? (parseLatLng(selectedEmp.latLong) ?? null)
     : null;
-
-  // Road paths connecting each CHECKBOX-SELECTED employee's location to their
-  // assigned route's destination (fetchRoadPath caches, so re-runs are cheap).
-  const [empPaths, setEmpPaths] = useState<Record<string, LatLng[]>>({});
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      for (const empId of selectedEmployees) {
-        const emp = employees.find((e) => e.id === empId);
-        if (!emp) continue;
-        const coords = parseLatLng(emp.latLong);
-        const route = routes.find((r) => r.name === emp.route);
-        if (!coords || !route?.destLat || !route?.destLng) continue;
-        const path = await fetchRoadPath(coords, [route.destLat, route.destLng]);
-        if (cancelled) return;
-        setEmpPaths((prev) => ({ ...prev, [empId]: path }));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedEmployees, employees, routes]);
 
   const companyPt = company ? ([company.lat, company.lng] as [number, number]) : null;
 
@@ -421,31 +383,6 @@ export default function MasterRouting() {
             {/* Fly to clicked employee */}
             <FlyTo coords={flyCoords} />
 
-            {/* Connections: each checkbox-selected employee → their assigned route's destination */}
-            {Array.from(selectedEmployees).map((empId) => {
-              const emp = employees.find((e) => e.id === empId);
-              if (!emp) return null;
-              const coords = parseLatLng(emp.latLong);
-              const route = routes.find((r) => r.name === emp.route);
-              if (!coords || !route?.destLat || !route?.destLng) return null;
-              return (
-                <Polyline
-                  key={`emp-conn-${empId}`}
-                  positions={empPaths[empId] ?? [coords, [route.destLat, route.destLng]]}
-                  pathOptions={{
-                    color: routeColor(route.id),
-                    weight: 5,
-                    opacity: 0.95,
-                    dashArray: "8 8",
-                  }}
-                >
-                  <Tooltip sticky>
-                    {emp.name} → Route: {route.name}
-                  </Tooltip>
-                </Polyline>
-              );
-            })}
-
             {/* Company marker */}
             {companyPt && (
               <CircleMarker
@@ -466,13 +403,14 @@ export default function MasterRouting() {
 
             {/* Route paths along actual roads, company → destination */}
             {companyPt && routes.map((route) => {
-              if (!route.destLat || !route.destLng) return null;
+              const storedPath = route.dropPath.map((point) => [point.lat, point.lng] as [number, number]);
+              if (route.geometryStatus !== 'ready' || storedPath.length < 2) return null;
               const color = routeColor(route.id);
               const isActive = selectedRouteId === route.id || selectedRouteId === null;
               return (
                 <Polyline
                   key={route.id}
-                  positions={roadPaths[route.id] ?? [companyPt, [route.destLat, route.destLng]]}
+                  positions={storedPath}
                   pathOptions={{
                     color,
                     weight: selectedRouteId === route.id ? 5 : 3,

@@ -4,17 +4,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getDrivers, deleteDriver, importDrivers } from "../api";
 import type { Driver } from "../api";
 import Pagination from "../components/Pagination";
+import ImportPreviewModal from "../components/ImportPreviewModal";
 import { exportToCsv } from "../lib/exportCsv";
-import { parseExcel, downloadTemplate } from "../lib/excel";
+import { parseExcel, downloadTemplate, type ExcelRow } from "../lib/excel";
+import { DRIVER_EXAMPLE, DRIVER_HEADERS, IMPORT_ALIASES, bulkErrorsFromApi, driverFromRow, rowErrors } from "../lib/importSchemas";
 import { useToast } from "../context/ToastContext";
 import { useVendors } from "../hooks/useVendors";
 
 const PAGE_SIZE = 20;
-
-const TEMPLATE_HEADERS = [
-  "Name", "Gender", "DL Number", "Badge Number", "Contact", "Aadhaar", "PAN",
-  "Vendor", "DL Effective From", "DL Expiry", "Address", "PVC Expiry", "Medical Expiry",
-];
 
 export default function DriverManagement() {
   const toast = useToast();
@@ -27,6 +24,9 @@ export default function DriverManagement() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importRows, setImportRows] = useState<ExcelRow[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [serverImportErrors, setServerImportErrors] = useState<Record<number, string[]>>({});
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { getDrivers().then(setDrivers); }, []);
@@ -87,33 +87,46 @@ export default function DriverManagement() {
   }
 
   async function handleUploadFile(file: File) {
+    try {
+      const rows = await parseExcel(file, { aliases: IMPORT_ALIASES });
+      if (rows.length === 0) { toast.error("No data rows found. Download the Driver template and add rows below its header."); return; }
+      setImportRows(rows);
+      setServerImportErrors({});
+      setShowImportModal(true);
+    } catch (err) {
+      toast.error(`Failed to read drivers: ${(err as Error).message}`);
+    }
+  }
+
+  const importErrors = useMemo(() => {
+    const existingDls = new Set(drivers.map((driver) => driver.dlNumber.toLowerCase()));
+    const existingContacts = new Set(drivers.map((driver) => driver.contact).filter(Boolean));
+    const localErrors = rowErrors(importRows, (row, index) => {
+      const driver = driverFromRow(row, vendors[0] ?? '');
+      const errors: string[] = [];
+      if (!driver.name) errors.push('Name is required');
+      if (!driver.dlNumber) errors.push('DL Number is required');
+      if (!driver.contact) errors.push('Contact is required');
+      if (driver.dlNumber && existingDls.has(driver.dlNumber.toLowerCase())) errors.push('DL Number already exists');
+      if (driver.contact && existingContacts.has(driver.contact)) errors.push('Contact already exists');
+      if (driver.dlNumber && importRows.slice(0, index).some((item) => driverFromRow(item).dlNumber.toLowerCase() === driver.dlNumber.toLowerCase())) errors.push('Duplicate DL Number in file');
+      if (driver.contact && importRows.slice(0, index).some((item) => driverFromRow(item).contact === driver.contact)) errors.push('Duplicate contact in file');
+      return errors;
+    });
+    return Object.fromEntries(importRows.map((_, index) => [index, [...(localErrors[index] ?? []), ...(serverImportErrors[index] ?? [])]]));
+  }, [drivers, importRows, serverImportErrors, vendors]);
+
+  async function handleConfirmImport() {
     setImporting(true);
     try {
-      const rows = await parseExcel<Record<string, unknown>>(file);
-      if (rows.length === 0) { toast.error("No rows found in file"); return; }
-      const val = (r: Record<string, unknown>, k: string) => String(r[k] ?? "").trim();
-      const payload = rows.map((r) => ({
-        name: val(r, "Name"),
-        gender: val(r, "Gender"),
-        dlNumber: val(r, "DL Number"),
-        badgeNumber: val(r, "Badge Number"),
-        contact: val(r, "Contact"),
-        aadhaar: val(r, "Aadhaar"),
-        pan: val(r, "PAN"),
-        vendor: val(r, "Vendor") || vendors[0] || "RGL",
-        dlEffectiveFrom: val(r, "DL Effective From"),
-        dlExpiry: val(r, "DL Expiry"),
-        address: val(r, "Address"),
-        pvcExpiry: val(r, "PVC Expiry"),
-        medicalExpiry: val(r, "Medical Expiry"),
-      }));
-      const result = await importDrivers(payload);
-      const parts = [`${result.created} created`, `${result.skipped} skipped (duplicate DL)`];
-      if (result.failed) parts.push(`${result.failed} failed`);
-      toast.success(`Import done: ${parts.join(", ")}`);
-      getDrivers().then(setDrivers);
-    } catch (err) {
-      toast.error(`Failed to import drivers: ${(err as Error).message}`);
+      const result = await importDrivers(importRows.map((row) => driverFromRow(row, vendors[0] ?? '')));
+      setShowImportModal(false);
+      setImportRows([]);
+      toast.success(`${result.created} drivers imported successfully`);
+      setDrivers(await getDrivers());
+    } catch (error) {
+      setServerImportErrors(bulkErrorsFromApi(error));
+      toast.error(`Driver import failed: ${(error as Error).message}`);
     } finally {
       setImporting(false);
     }
@@ -140,7 +153,7 @@ export default function DriverManagement() {
             </button>
           )}
           <button
-            onClick={() => downloadTemplate("drivers_template.xlsx", TEMPLATE_HEADERS)}
+            onClick={() => downloadTemplate("drivers_template.xlsx", DRIVER_HEADERS, DRIVER_EXAMPLE)}
             className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
             title="Download Excel template"
           >
@@ -301,6 +314,17 @@ export default function DriverManagement() {
         </table>
         <Pagination total={filtered.length} page={page} pageSize={PAGE_SIZE} onChange={setPage} />
       </div>
+      <ImportPreviewModal
+        open={showImportModal}
+        title="Import Drivers"
+        rows={importRows}
+        columns={DRIVER_HEADERS.map((key) => ({ key, required: ['Name', 'DL Number', 'Contact'].includes(key) }))}
+        errors={importErrors}
+        saving={importing}
+        onRowsChange={(rows) => { setImportRows(rows); setServerImportErrors({}); }}
+        onClose={() => { setShowImportModal(false); setImportRows([]); }}
+        onSave={handleConfirmImport}
+      />
     </>
   );
 }
