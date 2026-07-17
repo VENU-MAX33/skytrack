@@ -59,7 +59,6 @@ export default function Login() {
   return (
     <div className="app-shell flex flex-col justify-center px-6 py-10 min-h-screen">
       <div className="text-center mb-8">
-        <img src="/skytrack-logo.png" alt="SkyTrack" className="h-32 w-full object-contain mb-3" />
         <h1 className="text-2xl font-bold text-[#0047B2]">SkyTrack Driver</h1>
         <div className="text-[13px] text-[#595959] mt-1">Sign in to view your trips</div>
       </div>
