@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { X, Home, UserCircle, Info, LogOut, Sun, Moon, MapPin } from 'lucide-react';
+import { X, Home, UserCircle, Info, LogOut, Sun, Moon, MapPin, BarChart3 } from 'lucide-react';
 import Modal from './Modal';
 import { useAuth } from '../context/AuthContext';
 import { useSettingsSheet } from '../context/SettingsSheetContext';
@@ -66,6 +66,9 @@ export default function SettingsSheet() {
           <button onClick={() => go('/')} className="w-full flex items-center gap-3 p-3 rounded-lg text-[15px] font-medium hover:bg-black/5">
             <Home size={20} style={{ color: 'var(--purple)' }} /> Home
           </button>
+          <button onClick={() => go('/reports')} className="w-full flex items-center gap-3 p-3 rounded-lg text-[15px] font-medium hover:bg-black/5">
+            <BarChart3 size={20} style={{ color: 'var(--purple)' }} /> Trip Reports
+          </button>
           <button onClick={() => go('/profile')} className="w-full flex items-center gap-3 p-3 rounded-lg text-[15px] font-medium hover:bg-black/5">
             <UserCircle size={20} style={{ color: 'var(--purple)' }} /> Driver Profile
           </button>
@@ -84,7 +87,7 @@ export default function SettingsSheet() {
         </button>
 
         <div className="text-center text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
-          MonitorX Driver &bull; v{APP_VERSION}
+          SkyTrack Driver &bull; v{APP_VERSION}
         </div>
     </Modal>
   );

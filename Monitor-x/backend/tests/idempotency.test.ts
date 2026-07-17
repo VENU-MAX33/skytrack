@@ -61,3 +61,16 @@ test('trip creation without a key is unaffected', async () => {
     .send({ type: 'PickUp', vehicleNo: vehicle.rtoNo });
   assert.equal(res.status, 201);
 });
+
+test('an Idempotency-Key cannot be reused with a different request body', async () => {
+  const { token, vehicle } = await seedTripPrereqs();
+  const first = await request(app).post('/api/trips')
+    .set('Authorization', `Bearer ${token}`).set('Idempotency-Key', 'body-bound')
+    .send({ type: 'PickUp', vehicleNo: vehicle.rtoNo });
+  const second = await request(app).post('/api/trips')
+    .set('Authorization', `Bearer ${token}`).set('Idempotency-Key', 'body-bound')
+    .send({ type: 'Drop', vehicleNo: vehicle.rtoNo });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 422);
+  assert.equal(await Trip.countDocuments({}), 1);
+});

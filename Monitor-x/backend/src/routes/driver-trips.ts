@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Trip } from '../models/Trip.js';
 import { toDriverTripDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
-import { localToday } from '../lib/statusBuckets.js';
+import { localToday, STATUS_BUCKETS } from '../lib/statusBuckets.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { tripCompletionDeadline } from '../services/trip-alert.service.js';
 import { emitOtpSent, emitEmployeeVerified, emitTripStatus } from '../websocket/index.js';
@@ -12,6 +12,28 @@ export const driverTripsRouter = Router();
 const TRIP_POPULATE = 'vehicleId driverId routeId employeeIds';
 type PopulatedTrip = Parameters<typeof toDriverTripDTO>[0];
 const ONGOING_STATUSES = ['Trip Started', 'Pickup Started', 'Drop Started'];
+
+function reportDate(value: unknown): string {
+  const date = String(value ?? localToday());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
+    throw new HttpError(400, 'date must use YYYY-MM-DD');
+  }
+  return date;
+}
+
+function reportRanges(date: string) {
+  const [year, month] = date.split('-').map(Number);
+  const monthEnd = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    day: { $gte: date, $lte: date },
+    month: { $gte: `${date.slice(0, 7)}-01`, $lte: `${date.slice(0, 7)}-${String(monthEnd).padStart(2, '0')}` },
+    year: { $gte: `${year}-01-01`, $lte: `${year}-12-31` },
+  };
+}
+
+function completedQuery(driverId: string) {
+  return { driverId, completedAt: { $ne: null }, status: { $in: STATUS_BUCKETS.completed } };
+}
 
 // Loads a trip owned by the authenticated driver (populated), or throws 404.
 async function loadOwnedTrip(tripId: string, driverId: string): Promise<PopulatedTrip> {
@@ -42,6 +64,57 @@ driverTripsRouter.get(
       .sort({ date: 1, shiftTime: 1 })
       .populate(TRIP_POPULATE);
     res.json(docs.map((d) => toDriverTripDTO(d as unknown as PopulatedTrip)));
+  })
+);
+
+// GET /api/driver/trips/report/summary?date=YYYY-MM-DD
+driverTripsRouter.get(
+  '/report/summary',
+  asyncHandler(async (req, res) => {
+    const date = reportDate(req.query.date);
+    const ranges = reportRanges(date);
+    const base = completedQuery(req.auth!.sub);
+    const [dailyCompleted, monthlyCompleted, yearlyCompleted] = await Promise.all([
+      Trip.countDocuments({ ...base, date: ranges.day }),
+      Trip.countDocuments({ ...base, date: ranges.month }),
+      Trip.countDocuments({ ...base, date: ranges.year }),
+    ]);
+    res.json({ selectedDate: date, dailyCompleted, monthlyCompleted, yearlyCompleted });
+  })
+);
+
+// GET /api/driver/trips/report?date=YYYY-MM-DD&page=1&limit=20
+driverTripsRouter.get(
+  '/report',
+  asyncHandler(async (req, res) => {
+    const date = reportDate(req.query.date);
+    const page = Math.max(1, Number.parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit ?? '20'), 10) || 20));
+    const ranges = reportRanges(date);
+    const base = completedQuery(req.auth!.sub);
+    const dailyQuery = { ...base, date: ranges.day };
+    const [dailyCompleted, monthlyCompleted, yearlyCompleted, total, docs] = await Promise.all([
+      Trip.countDocuments(dailyQuery),
+      Trip.countDocuments({ ...base, date: ranges.month }),
+      Trip.countDocuments({ ...base, date: ranges.year }),
+      Trip.countDocuments(dailyQuery),
+      Trip.find(dailyQuery)
+        .sort({ completedAt: -1, shiftTime: 1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(TRIP_POPULATE),
+    ]);
+    res.json({
+      selectedDate: date,
+      dailyCompleted,
+      monthlyCompleted,
+      yearlyCompleted,
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      trips: docs.map((doc) => toDriverTripDTO(doc as unknown as PopulatedTrip)),
+    });
   })
 );
 

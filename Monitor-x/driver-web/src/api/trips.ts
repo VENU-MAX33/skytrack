@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut } from './client';
-import type { DriverTrip, CompanyConfig } from './types';
+import type { DriverTrip, CompanyConfig, DriverTripReport, DriverTripReportSummary } from './types';
 
 export function getDriverTrips(): Promise<DriverTrip[]> {
   return apiGet<DriverTrip[]>('/api/driver/trips');
@@ -7,6 +7,14 @@ export function getDriverTrips(): Promise<DriverTrip[]> {
 
 export function getDriverTrip(tripId: string): Promise<DriverTrip> {
   return apiGet<DriverTrip>(`/api/driver/trips/${tripId}`);
+}
+
+export function getDriverTripReport(date: string, page = 1): Promise<DriverTripReport> {
+  return apiGet<DriverTripReport>(`/api/driver/trips/report?date=${encodeURIComponent(date)}&page=${page}&limit=20`);
+}
+
+export function getDriverTripReportSummary(date: string): Promise<DriverTripReportSummary> {
+  return apiGet<DriverTripReportSummary>(`/api/driver/trips/report/summary?date=${encodeURIComponent(date)}`);
 }
 
 export function sendOtp(tripId: string, empId: string): Promise<{ sent: boolean }> {

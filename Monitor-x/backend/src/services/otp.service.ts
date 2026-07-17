@@ -55,7 +55,7 @@ async function deliverSms(phone: string, code: string): Promise<void> {
     if (!data.return && /website verification/i.test(detail(data))) {
       data = await send({
         route: 'q',
-        message: `Your MonitorX OTP is ${code}. Valid for 5 minutes.`,
+        message: `Your SkyTrack OTP is ${code}. Valid for 5 minutes.`,
         numbers: number,
       });
     }

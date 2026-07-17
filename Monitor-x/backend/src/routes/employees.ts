@@ -5,6 +5,7 @@ import { toEmployeeDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import type { Employee as EmployeeDTO } from '../types/dto.js';
 import { parseEmployeePoint, recommendRoute } from '../services/route-geometry.service.js';
+import { assertPhoneAvailable, normalizePhone } from '../services/phone-login.service.js';
 
 export const employeesRouter = Router();
 
@@ -20,7 +21,7 @@ const EMPLOYEE_FIELDS = [
 function fromDTO(body: Partial<EmployeeDTO>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of EMPLOYEE_FIELDS) {
-    if (body[key] !== undefined) out[key] = body[key];
+    if (body[key] !== undefined) out[key] = key === 'contact' && body[key] ? normalizePhone(String(body[key])) : body[key];
   }
   if (body.id !== undefined) out.empId = body.id;
   return out;
@@ -30,12 +31,8 @@ function fromDTO(body: Partial<EmployeeDTO>): Record<string, unknown> {
 async function assertContactUnique(contact: string | undefined, excludeEmpId?: string): Promise<void> {
   const c = contact?.trim();
   if (!c) return;
-  const query: Record<string, unknown> = { contact: c };
-  if (excludeEmpId) query.empId = { $ne: excludeEmpId };
-  const existing = await Employee.findOne(query);
-  if (existing) {
-    throw new HttpError(409, `This mobile number is already registered to employee ${existing.name} (${existing.empId})`);
-  }
+  const current = excludeEmpId ? await Employee.findOne({ empId: excludeEmpId }).select('_id') : null;
+  await assertPhoneAvailable('employee', c, current?._id);
 }
 
 async function validateAndAutoAssignRoute(latLong: string | undefined): Promise<string | null> {
@@ -78,6 +75,11 @@ async function prepareEmployeeBulk(rows: Partial<EmployeeDTO>[]): Promise<{
   const existingIds = new Set(existingEmployees.map((employee) => employee.empId.toLowerCase()));
   const existingContacts = new Map(existingEmployees.map((employee) => [employee.contact, employee]));
   const routeNames = new Set(routes.map((route) => route.name));
+  const globalContactErrors = new Map<string, string>();
+  await Promise.all(contacts.map(async (contact) => {
+    try { await assertPhoneAvailable('employee', contact); }
+    catch (error) { globalContactErrors.set(contact, (error as Error).message); }
+  }));
 
   for (let index = 0; index < rows.length; index++) {
     const body = rows[index];
@@ -98,6 +100,7 @@ async function prepareEmployeeBulk(rows: Partial<EmployeeDTO>[]): Promise<{
     if (id && existingIds.has(idKey)) reasons.push(`Employee ${id} already exists`);
     const contactOwner = contact ? existingContacts.get(contact) : undefined;
     if (contactOwner) reasons.push(`Contact is already registered to ${contactOwner.name} (${contactOwner.empId})`);
+    else if (contact && globalContactErrors.has(contact)) reasons.push(globalContactErrors.get(contact)!);
     if (body.route?.trim() && !routeNames.has(body.route.trim())) reasons.push(`Route ${body.route.trim()} does not exist`);
 
     if (body.latLong?.trim()) {

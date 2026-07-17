@@ -17,8 +17,8 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/', { replace: true });
+      const loggedIn = await login(email, password);
+      navigate(loggedIn.role === 'platform-owner' && !loggedIn.company ? '/companies' : '/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -31,10 +31,8 @@ export default function Login() {
       <div className="dashboard-card p-8 w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-[#0047B2] rounded-lg mb-3">
-            <span className="text-white text-xl font-bold">M</span>
-          </div>
-          <h1 className="text-[20px] font-semibold text-[#222222]">MonitorX</h1>
+          <img src="/skytrack-logo.png" alt="SkyTrack" className="h-28 w-full object-contain mb-3" />
+          <h1 className="text-[20px] font-semibold text-[#222222]">SkyTrack</h1>
           <p className="text-[13px] text-[#595959] mt-1">Transport Management System</p>
         </div>
 

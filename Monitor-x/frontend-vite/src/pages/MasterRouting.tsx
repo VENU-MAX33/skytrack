@@ -233,6 +233,10 @@ export default function MasterRouting() {
               return (
                 <div
                   key={route.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isActive}
+                  onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}
                   onClick={() => {
                     setSelectedRouteId(isActive ? null : route.id);
                     setSelectedEmpId(null);
@@ -321,6 +325,10 @@ export default function MasterRouting() {
                 return (
                   <div
                     key={emp.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSel}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}
                     onClick={() => setSelectedEmpId(isSel ? null : emp.id)}
                     className={`p-2.5 rounded border cursor-pointer transition-all ${
                       isSel ? "border-[#0047B2] bg-[#EEF4FF] shadow-sm" : "border-[#E0E4E9] bg-white hover:shadow-sm"
@@ -519,6 +527,10 @@ export default function MasterRouting() {
           {routes.map((r) => (
             <div
               key={r.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedRouteId === r.id}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}
               className="flex items-center gap-1.5 text-[12px] cursor-pointer px-3 py-1 rounded-full border transition-colors"
               style={{
                 borderColor: routeColor(r.id),

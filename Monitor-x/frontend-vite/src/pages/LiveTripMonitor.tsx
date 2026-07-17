@@ -410,7 +410,6 @@ export default function LiveTripMonitor() {
                   <td>
                     {editingVehicle === trip.id ? (
                       <select
-                        autoFocus
                         value={trip.vehicleNo}
                         disabled={changingVehicle === trip.id}
                         onChange={(e) => handleChangeVehicle(trip.id, e.target.value)}

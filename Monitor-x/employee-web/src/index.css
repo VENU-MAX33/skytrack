@@ -35,6 +35,11 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 .app-shell {
   max-width: 480px;
   margin: 0 auto;

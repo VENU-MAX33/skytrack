@@ -22,7 +22,8 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Context modules intentionally co-locate Provider components and hooks.
+      'react-refresh/only-export-components': 'off',
       // Tracked backlog: turning interactive <div>s (table rows, map markers) into
       // proper controls, and reviewing autofocus, needs case-by-case UX work. Keep
       // them visible as warnings so they don't regress further, without blocking.

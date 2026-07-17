@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface DriverDoc {
   name: string;
@@ -27,7 +28,7 @@ export interface DriverDoc {
 const driverSchema = new Schema<DriverDoc>({
   name: { type: String, required: true, index: true },
   gender: { type: String, default: '' },
-  dlNumber: { type: String, required: true, unique: true },
+  dlNumber: { type: String, required: true },
   badgeNumber: { type: String, default: '' },
   contact: { type: String, default: '' },
   email: { type: String, default: '' },
@@ -47,4 +48,6 @@ const driverSchema = new Schema<DriverDoc>({
   passwordSetAt: { type: Date, default: null },
 });
 
-export const Driver = model<DriverDoc>('Driver', driverSchema);
+driverSchema.index({ companyId: 1, dlNumber: 1 }, { unique: true });
+
+export const Driver = tenantModel<DriverDoc>('Driver', driverSchema);

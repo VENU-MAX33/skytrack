@@ -15,6 +15,12 @@ employeeLocationRouter.post(
     if (!tripId || lat == null || lng == null) {
       throw new HttpError(400, 'tripId, lat and lng are required');
     }
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      throw new HttpError(400, 'lat must be a number between -90 and 90');
+    }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+      throw new HttpError(400, 'lng must be a number between -180 and 180');
+    }
 
     const selfObjectId = new Types.ObjectId(req.auth!.sub);
 

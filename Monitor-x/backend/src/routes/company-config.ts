@@ -4,6 +4,7 @@ import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { requirePermission } from '../middleware/auth.js';
 import { Route } from '../models/Route.js';
 import { rebuildAllRouteGeometries } from '../services/route-geometry.service.js';
+import { Company } from '../models/Company.js';
 
 export const companyConfigRouter = Router();
 
@@ -28,7 +29,7 @@ companyConfigRouter.get(
 
 companyConfigRouter.put(
   '/',
-  requirePermission((role) => role === 'admin'),
+  requirePermission((role) => role === 'admin' || role === 'platform-owner'),
   asyncHandler(async (req, res) => {
     const { name, address, lat, lng, logoBase64, vendors } = req.body as Partial<CompanyConfigDoc>;
     if (lat !== undefined && (!Number.isFinite(lat) || Math.abs(lat) > 90)) {
@@ -52,6 +53,7 @@ companyConfigRouter.put(
       update.vendors = [...new Set(vendors.map((v) => String(v).trim()).filter(Boolean))];
     }
     const doc = await CompanyConfig.findOneAndUpdate({}, update, { new: true, upsert: true });
+    await Company.updateOne({ _id: req.auth!.companyId }, update);
     if (coordinatesChanged) {
       await Route.updateMany({}, { geometryStatus: 'pending', geometryError: '' });
     }

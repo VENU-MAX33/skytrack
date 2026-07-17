@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface ApprovalDoc {
   category: string; // 'employeeAddressChange' | 'workspaceBooking'
@@ -16,4 +17,4 @@ const approvalSchema = new Schema<ApprovalDoc>({
   requestedAt: { type: String, default: '' },
 });
 
-export const Approval = model<ApprovalDoc>('Approval', approvalSchema);
+export const Approval = tenantModel<ApprovalDoc>('Approval', approvalSchema);

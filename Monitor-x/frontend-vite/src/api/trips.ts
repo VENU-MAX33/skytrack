@@ -48,15 +48,8 @@ export async function updateTripEscort(
   return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/escort`, { escort, escortName });
 }
 
-export async function recalculateTripSchedule(tripId: string): Promise<Trip> {
-  return apiPut<Trip>(`/api/trips/${encodeURIComponent(tripId)}/schedule/recalculate`, {});
-}
-
 export interface TripScheduleOverride {
-  driverReportAt?: string;
-  scheduledStartAt?: string;
-  scheduledEndAt?: string;
-  stops?: { employeeId: string; plannedAt: string }[];
+  stops: { employeeId: string; reachTime: string }[];
 }
 
 export async function updateTripSchedule(

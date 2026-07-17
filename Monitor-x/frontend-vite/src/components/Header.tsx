@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info, LogOut, UserCheck } from "lucide-react";
+import { Bell, ChevronDown, User, AlertTriangle, MapPin, Navigation, Info, LogOut, UserCheck, Menu, X, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCompanyConfig } from "../api";
 import {
@@ -38,11 +38,16 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function Header() {
+interface HeaderProps {
+  menuOpen?: boolean;
+  onMenuToggle?: () => void;
+}
+
+export default function Header({ menuOpen = false, onMenuToggle }: HeaderProps) {
   const navigate = useNavigate();
   const { on } = useRealtime();
-  const { user, logout } = useAuth();
-  const [companyName, setCompanyName] = useState("MonitorX");
+  const { user, logout, exitCompany } = useAuth();
+  const [companyName, setCompanyName] = useState("SkyTrack");
   const [companyLogo, setCompanyLogo] = useState("");
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -60,7 +65,7 @@ export default function Header() {
   const loadCompany = useCallback(() => {
     getCompanyConfig()
       .then((cfg) => {
-        setCompanyName(cfg.name || "MonitorX");
+        setCompanyName(cfg.name || "SkyTrack");
         setCompanyLogo(cfg.logoBase64 || "");
       })
       .catch(() => {});
@@ -115,6 +120,12 @@ export default function Header() {
     navigate("/login");
   }
 
+  async function handleCompanyManagement() {
+    setProfileOpen(false);
+    if (user?.role === 'platform-owner' && user.company) await exitCompany();
+    navigate('/companies');
+  }
+
   async function handleOpen() {
     const next = !open;
     setOpen(next);
@@ -134,10 +145,19 @@ export default function Header() {
   return (
     <header className="main-header bg-white flex items-stretch">
       {/* Logo Area */}
-      <div className="w-[230px] h-[51px] flex items-center justify-start px-4 border-r border-[#E0E4E9] overflow-hidden">
+      <div className="header-logo h-[51px] flex items-center justify-start px-4 border-r border-[#E0E4E9] overflow-hidden">
+        <button
+          type="button"
+          className="mobile-menu-button"
+          onClick={onMenuToggle}
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
         <a href="/" className="flex items-center">
           <img
-            src={companyLogo || "/monitorx-logo.png"}
+            src={companyLogo || "/skytrack-logo.png"}
             alt={companyName}
             className="h-[40px] w-auto rounded-md object-contain"
           />
@@ -159,14 +179,14 @@ export default function Header() {
               <span className="text-white text-xs font-bold">{initials(companyName)}</span>
             </div>
           )}
-          <span className="text-[#222222] text-[13px] font-medium">{companyName}</span>
+          <span className="header-company-name text-[#222222] text-[13px] font-medium">{companyName}</span>
         </div>
 
         {/* Right side - User actions */}
-        <div className="flex items-center gap-4">
+        <div className="header-actions flex items-center gap-4">
           <button
             onClick={() => navigate("/route-management")}
-            className="flex items-center gap-2 text-[13px] text-[#222222] hover:bg-[#F5F6FA] px-3 py-1.5 rounded"
+            className="company-switcher flex items-center gap-2 text-[13px] text-[#222222] hover:bg-[#F5F6FA] px-3 py-1.5 rounded"
             title="Change company details"
           >
             <span>{companyName}</span>
@@ -185,7 +205,7 @@ export default function Header() {
             </button>
 
             {open && (
-              <div className="absolute right-0 mt-2 w-[340px] bg-white rounded-lg shadow-xl border border-[#E0E4E9] z-[1200] max-h-[440px] flex flex-col">
+              <div className="notification-panel absolute right-0 mt-2 w-[340px] bg-white rounded-lg shadow-xl border border-[#E0E4E9] z-[1200] max-h-[440px] flex flex-col">
                 <div className="px-4 py-3 border-b border-[#E0E4E9] flex items-center justify-between">
                   <span className="text-[13px] font-semibold text-[#222]">Notifications</span>
                   <span className="text-[11px] text-[#595959]">{items.length} recent</span>
@@ -246,12 +266,14 @@ export default function Header() {
                 <div className="px-4 py-2 border-b border-[#E0E4E9]">
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      user.role === "admin" ? "bg-[#E8F4FD] text-[#0047B2]" : "bg-[#F5F6FA] text-[#555]"
+                      user.role !== "staff" ? "bg-[#E8F4FD] text-[#0047B2]" : "bg-[#F5F6FA] text-[#555]"
                     }`}
                   >
-                    {user.role === "admin" ? "ADMIN" : "STAFF"}
+                    {user.role === "platform-owner" ? "PLATFORM OWNER" : user.role === "admin" ? "ADMIN" : "STAFF"}
                   </span>
+                  {user.company && <div className="text-[11px] text-[#595959] mt-2">Working in: <strong>{user.company.name}</strong></div>}
                 </div>
+                {user.role === 'platform-owner' && <button onClick={handleCompanyManagement} className="w-full flex items-center gap-2 px-4 py-3 text-[13px] text-[#0047B2] hover:bg-[#EEF4FF] border-b border-[#E0E4E9]"><Building2 className="w-4 h-4" /> Manage / switch companies</button>}
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-4 py-3 text-[13px] text-[#D22630] hover:bg-[#FFF5F5] rounded-b-lg"

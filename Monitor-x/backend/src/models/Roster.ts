@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface RosterDoc {
   employeeId: Types.ObjectId;
@@ -18,4 +19,9 @@ const rosterSchema = new Schema<RosterDoc>({
   status: { type: String, enum: ['pending', 'approved', 'completed'], default: 'pending', index: true },
 });
 
-export const Roster = model<RosterDoc>('Roster', rosterSchema);
+rosterSchema.index(
+  { companyId: 1, employeeId: 1, date: 1, tripType: 1 },
+  { unique: true, name: 'unique_employee_roster_per_trip_type' }
+);
+
+export const Roster = tenantModel<RosterDoc>('Roster', rosterSchema);

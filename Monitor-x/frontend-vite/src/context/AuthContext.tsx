@@ -2,19 +2,23 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { loginRequest } from '../api/auth';
 import { TOKEN_KEY } from '../api/client';
+import { exitCompany as exitCompanyRequest, switchToCompany } from '../api/companies';
 
-export type AdminRole = 'admin' | 'staff';
+export type AdminRole = 'platform-owner' | 'admin' | 'staff';
 
 export interface AuthUser {
   name: string;
   email: string;
   role: AdminRole;
+  company: { id: string; code: string; name: string; logoBase64?: string } | null;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
+  openCompany: (companyId: string) => Promise<void>;
+  exitCompany: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,17 +52,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:unauthorized', logout);
   }, [logout]);
 
-  async function login(email: string, password: string): Promise<void> {
+  async function login(email: string, password: string): Promise<AuthUser> {
     if (!email || !password) {
       throw new Error('Email and password are required');
     }
     const { token, user: loggedIn } = await loginRequest(email, password);
     localStorage.setItem(TOKEN_KEY, token);
     setUser(loggedIn);
+    return loggedIn;
   }
 
+  const openCompany = useCallback(async (companyId: string) => {
+    const result = await switchToCompany(companyId);
+    localStorage.setItem(TOKEN_KEY, result.token);
+    setUser((current) => current ? { ...current, company: result.company } : current);
+  }, []);
+
+  const exitCompany = useCallback(async () => {
+    const result = await exitCompanyRequest();
+    localStorage.setItem(TOKEN_KEY, result.token);
+    setUser((current) => current ? { ...current, company: null } : current);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, openCompany, exitCompany }}>
       {children}
     </AuthContext.Provider>
   );

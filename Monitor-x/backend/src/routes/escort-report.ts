@@ -36,11 +36,10 @@ escortReportRouter.post(
     let driverObjectId: Types.ObjectId | undefined;
     let tripObjectId: Types.ObjectId | undefined;
     if (tripId) {
-      tripDoc = await Trip.findOne({ tripId });
-      if (tripDoc) {
-        tripObjectId = tripDoc._id;
-        driverObjectId = tripDoc.driverId ?? undefined;
-      }
+      tripDoc = await Trip.findOne({ tripId, employeeIds: req.auth!.sub });
+      if (!tripDoc) throw new HttpError(404, 'Trip not found or you are not on this trip');
+      tripObjectId = tripDoc._id;
+      driverObjectId = tripDoc.driverId ?? undefined;
     }
 
     const employee = await Employee.findById(req.auth!.sub);
@@ -90,7 +89,7 @@ escortReportRouter.post(
 // GET /api/escort-report — admin lists reports (newest first)
 escortReportRouter.get(
   '/',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const { status } = req.query as { status?: string };
     const query = status ? { status } : {};
@@ -102,7 +101,7 @@ escortReportRouter.get(
 // PUT /api/escort-report/:id/acknowledge — admin acknowledges
 escortReportRouter.put(
   '/:id/acknowledge',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const admin = await User.findById(req.auth!.sub);
     const updated = await acknowledgeEscortReport(req.params.id, admin?.name ?? 'Admin');
@@ -117,7 +116,7 @@ escortReportRouter.put(
 // DELETE /api/escort-report/:id — admin removes a report
 escortReportRouter.delete(
   '/:id',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const doc = await EscortReport.findByIdAndDelete(req.params.id);
     if (!doc) throw new HttpError(404, 'Escort report not found');

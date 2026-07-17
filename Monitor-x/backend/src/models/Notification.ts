@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export type NotificationType = 'sos' | 'location-request' | 'employee-location' | 'feedback' | 'escort' | 'info';
 
@@ -22,4 +23,4 @@ const notificationSchema = new Schema<NotificationDoc>({
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
-export const Notification = model<NotificationDoc>('Notification', notificationSchema);
+export const Notification = tenantModel<NotificationDoc>('Notification', notificationSchema);

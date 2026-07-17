@@ -515,7 +515,7 @@ export default function EmployeeManagement() {
                 <label className="flex items-center gap-2 bg-[#0047B2] text-white px-3 py-2 rounded text-[13px] cursor-pointer hover:bg-[#003a94] disabled:opacity-50">
                   <Upload className="w-4 h-4" />
                   {uploading ? 'Uploading…' : 'Add Document'}
-                  <input ref={docFileRef} type="file" accept="image/*,application/pdf,.doc,.docx" className="hidden" onChange={handleDocFileChange} disabled={uploading} />
+                  <input ref={docFileRef} type="file" accept="image/jpeg,image/png,application/pdf,.doc,.docx" className="hidden" onChange={handleDocFileChange} disabled={uploading} />
                 </label>
               </div>
             </div>

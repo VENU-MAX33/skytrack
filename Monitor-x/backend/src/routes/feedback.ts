@@ -14,7 +14,7 @@ const POPULATE = 'employeeId';
 // GET /api/feedback — admin lists feedback, optional ?read=true|false filter
 feedbackRouter.get(
   '/',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const { read } = req.query as { read?: string };
     const query = read === undefined ? {} : { read: read === 'true' };
@@ -26,7 +26,7 @@ feedbackRouter.get(
 // PUT /api/feedback/:id/read — admin marks a feedback entry as read
 feedbackRouter.put(
   '/:id/read',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const doc = await Feedback.findById(req.params.id).populate(POPULATE);
     if (!doc) throw new HttpError(404, 'Feedback not found');

@@ -49,7 +49,7 @@ export default function Dashboard() {
   function share() {
     const url = current ? `${window.location.origin}/trip/${current.id}` : window.location.origin;
     if (navigator.share) {
-      navigator.share({ title: 'My MonitorX trip', url }).catch(() => {});
+      navigator.share({ title: 'My SkyTrack trip', url }).catch(() => {});
     } else {
       navigator.clipboard?.writeText(url);
       toast.success('Trip link copied');
@@ -124,14 +124,11 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 font-semibold mb-2">
                 <MapPin size={18} className="text-[#004b87]" /> Your Scheduled Time
               </div>
-              <Row label="Driver starts by" value={formatTripTime(current.schedule.driverReportAt)} />
               <Row
-                label={current.type === 'Drop' ? 'Expected drop' : 'Driver reaches you'}
-                value={formatTripTime(current.schedule.stops[0]?.liveEtaAt ?? current.schedule.stops[0]?.plannedAt)}
+                label={current.type === 'Drop' ? 'Your drop time' : 'Driver expected at your location'}
+                value={formatTripTime(current.schedule.stops[0]?.plannedAt)}
                 valueClass="text-[#004b87]"
               />
-              <Row label={current.type === 'Drop' ? 'Route starts' : 'Expected office arrival'} value={formatTripTime(current.type === 'Drop' ? current.schedule.scheduledStartAt : current.schedule.scheduledEndAt)} />
-              {current.schedule.etaUpdatedAt && <div className="text-[10px] text-[#848484] text-right mt-2">ETA updated {formatTripTime(current.schedule.etaUpdatedAt)}</div>}
             </div>
           )}
 

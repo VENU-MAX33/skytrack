@@ -26,15 +26,15 @@ export default function Pagination({ total, page, pageSize, onChange }: Paginati
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-[#E0E4E9]">
+    <nav aria-label="Pagination" className="flex flex-wrap gap-3 items-center justify-between px-4 py-3 border-t border-[#E0E4E9]">
       <span className="text-[12px] text-[#595959]">
         Showing {start}–{end} of {total}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <button
           onClick={() => onChange(page - 1)}
           disabled={page === 1}
-          className="px-3 py-1 rounded border border-[#E0E4E9] text-[12px] text-[#222222] hover:bg-[#F5F6FA] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-9 px-3 py-1 rounded border border-[#E0E4E9] text-[12px] text-[#222222] hover:bg-[#F5F6FA] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Prev
         </button>
@@ -45,7 +45,9 @@ export default function Pagination({ total, page, pageSize, onChange }: Paginati
             <button
               key={p}
               onClick={() => onChange(p as number)}
-              className={`px-3 py-1 rounded border text-[12px] ${
+              aria-label={`Page ${p}`}
+              aria-current={p === page ? 'page' : undefined}
+              className={`min-w-9 min-h-9 px-2 py-1 rounded border text-[12px] ${
                 p === page
                   ? 'bg-[#0047B2] text-white border-[#0047B2]'
                   : 'border-[#E0E4E9] text-[#222222] hover:bg-[#F5F6FA]'
@@ -58,11 +60,11 @@ export default function Pagination({ total, page, pageSize, onChange }: Paginati
         <button
           onClick={() => onChange(page + 1)}
           disabled={page === totalPages}
-          className="px-3 py-1 rounded border border-[#E0E4E9] text-[12px] text-[#222222] hover:bg-[#F5F6FA] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-9 px-3 py-1 rounded border border-[#E0E4E9] text-[12px] text-[#222222] hover:bg-[#F5F6FA] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Next
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

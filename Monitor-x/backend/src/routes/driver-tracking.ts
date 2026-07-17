@@ -3,8 +3,7 @@ import crypto from 'crypto';
 import { Vehicle } from '../models/Vehicle.js';
 import { CompanyConfig } from '../models/CompanyConfig.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
-import { emitTripScheduleUpdate, emitVehiclePosition } from '../websocket/index.js';
-import { refreshDriverLiveEta } from '../services/trip-schedule.service.js';
+import { emitVehiclePosition } from '../websocket/index.js';
 
 export const driverTrackingRouter = Router();
 
@@ -27,12 +26,17 @@ driverTrackingRouter.get(
       res.json({ trackingKey: null, vehicle: null, company: company?.name ?? '' });
       return;
     }
-    if (!vehicle.trackingKey) {
-      vehicle.trackingKey = newKey();
-      await vehicle.save();
+    let trackingKey = vehicle.trackingKey;
+    if (!trackingKey) {
+      await Vehicle.updateOne(
+        { _id: vehicle._id, $or: [{ trackingKey: '' }, { trackingKey: { $exists: false } }] },
+        { $set: { trackingKey: newKey() } }
+      );
+      const freshVehicle = await Vehicle.findById(vehicle._id).select('trackingKey').lean();
+      trackingKey = freshVehicle?.trackingKey ?? '';
     }
     res.json({
-      trackingKey: vehicle.trackingKey,
+      trackingKey,
       vehicle: { rtoNo: vehicle.rtoNo, imei: vehicle.imei },
       company: company?.name ?? '',
     });
@@ -64,6 +68,15 @@ driverTrackingRouter.post(
     if (!key || lat == null || lng == null) {
       throw new HttpError(400, 'key, lat and lng are required');
     }
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      throw new HttpError(400, 'lat must be a number between -90 and 90');
+    }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+      throw new HttpError(400, 'lng must be a number between -180 and 180');
+    }
+    if (speed !== undefined && (!Number.isFinite(speed) || speed < 0 || speed > 300)) {
+      throw new HttpError(400, 'speed must be a number between 0 and 300');
+    }
     const vehicle = await findMyVehicle(req.auth!.sub);
     if (!vehicle) throw new HttpError(404, 'No vehicle is assigned to you');
     if (vehicle.trackingKey !== key) {
@@ -85,13 +98,6 @@ driverTrackingRouter.post(
       status: vehicle.trackStatus,
       speed: vehicle.speed,
     });
-    try {
-      const eta = await refreshDriverLiveEta(req.auth!.sub, { lat, lng });
-      if (eta?.changed) emitTripScheduleUpdate(eta);
-    } catch (error) {
-      // A schedule failure must never break the driver's GPS stream.
-      console.warn(`[live-eta] ${(error as Error).message}`);
-    }
     res.json({ ok: true });
   })
 );

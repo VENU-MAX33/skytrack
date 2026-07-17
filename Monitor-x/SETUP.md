@@ -32,6 +32,7 @@ New optional variables (sensible defaults shown):
 | Var | Default | Purpose |
 |---|---|---|
 | `CORS_ORIGINS` | `http://localhost:5173,5174,5175,127.0.0.1:5173,5174,5175` | Comma-separated production origins (REST + WS). Falls back to legacy `CORS_ORIGIN`; in development, any `localhost`/`127.0.0.1` Vite port is accepted. |
+| `TRUST_PROXY` | empty | Number of trusted proxies in front of the API, commonly `1` in production. Required for correct IP rate limiting behind a load balancer. |
 | `DEFAULT_EMPLOYEE_PASSWORD` | `monitorx@123` | Shared password seeded for every employee. |
 | `SMS_PROVIDER` | `dev` | `dev` logs OTPs to the backend console. Set `fast2sms` to deliver real OTP SMS. |
 | `FAST2SMS_API_KEY` | — | Required only when `SMS_PROVIDER=fast2sms`. Keep it in `backend/.env`; never expose it to a frontend. |
@@ -98,3 +99,16 @@ Restart the backend after changing the environment. Fast2SMS requires a valid
 account, an enabled OTP API route, and sufficient wallet/KYC status; the API
 will return the provider error to the OTP request if any of those are missing.
 Both login/reset and employee pickup OTPs use this same provider integration.
+
+## Production deployment checklist
+
+- Set `NODE_ENV=production` and generate a unique `JWT_SECRET` of at least 32 random characters.
+- Use only HTTPS URLs in `CORS_ORIGINS`; production startup rejects HTTP origins.
+- Terminate TLS at a managed load balancer/reverse proxy and set `TRUST_PROXY` to its trusted hop count.
+- Use a MongoDB replica set/managed cluster with authentication, encryption, automated backups and tested point-in-time restore.
+- Configure a real SMS provider and its required credentials; development SMS mode is rejected in production.
+- Route `GET /api/health/live` to the liveness probe and `GET /api/health/ready` to readiness. Readiness returns 503 until MongoDB connects.
+- Store secrets in the deployment secret manager, never in frontend `VITE_*` variables or committed `.env` files.
+- Retain structured application logs with access controls and alerts for repeated 401/403/429/5xx responses.
+- Put uploaded employee documents behind an approved malware-scanning/object-storage service before accepting untrusted external uploads at scale.
+- Exercise database restore, company suspension, account revocation, OTP delivery and graceful SIGTERM shutdown in staging before release.

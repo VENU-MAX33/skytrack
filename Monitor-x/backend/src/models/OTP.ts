@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export type OtpPurpose = 'pickup' | 'password_reset' | 'login';
 
@@ -33,4 +34,4 @@ const otpSchema = new Schema<OtpDoc>(
 // TTL index: documents are removed once expiresAt passes.
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const OTP = model<OtpDoc>('OTP', otpSchema);
+export const OTP = tenantModel<OtpDoc>('OTP', otpSchema);

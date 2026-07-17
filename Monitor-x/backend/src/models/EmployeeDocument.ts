@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface EmployeeDocumentDoc {
   employeeId: Types.ObjectId;
@@ -18,4 +19,4 @@ const employeeDocumentSchema = new Schema<EmployeeDocumentDoc>({
 
 employeeDocumentSchema.index({ employeeId: 1 });
 
-export const EmployeeDocument = model<EmployeeDocumentDoc>('EmployeeDocument', employeeDocumentSchema);
+export const EmployeeDocument = tenantModel<EmployeeDocumentDoc>('EmployeeDocument', employeeDocumentSchema);

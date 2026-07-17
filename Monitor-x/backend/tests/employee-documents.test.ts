@@ -73,3 +73,24 @@ test('does not delete a document under a different employee id', async () => {
   assert.equal(res.status, 404);
   assert.equal(await EmployeeDocument.countDocuments({ _id: doc._id }), 1);
 });
+
+test('upload rejects content whose signature does not match the declared type', async () => {
+  const token = await adminToken();
+  const emp = await makeEmployee();
+  const res = await request(app)
+    .post(`/api/employees/${emp.empId}/documents`)
+    .set('Authorization', `Bearer ${token}`)
+    .send({ name: 'fake.png', mimeType: 'image/png', base64: Buffer.from('not a png').toString('base64') });
+  assert.equal(res.status, 415);
+});
+
+test('upload accepts a small file with a matching signature', async () => {
+  const token = await adminToken();
+  const emp = await makeEmployee();
+  const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
+  const res = await request(app)
+    .post(`/api/employees/${emp.empId}/documents`)
+    .set('Authorization', `Bearer ${token}`)
+    .send({ name: 'valid.png', mimeType: 'image/png', base64: pngHeader });
+  assert.equal(res.status, 201);
+});

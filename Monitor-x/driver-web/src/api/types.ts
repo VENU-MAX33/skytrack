@@ -56,6 +56,21 @@ export interface DriverTrip {
   schedule: TripSchedule | null;
 }
 
+export interface DriverTripReportSummary {
+  selectedDate: string;
+  dailyCompleted: number;
+  monthlyCompleted: number;
+  yearlyCompleted: number;
+}
+
+export interface DriverTripReport extends DriverTripReportSummary {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  trips: DriverTrip[];
+}
+
 export interface DriverUser {
   name: string;
   contact: string;
@@ -64,6 +79,7 @@ export interface DriverUser {
   badgeNumber?: string;
   dlNumber?: string;
   role: 'driver';
+  company?: { code: string; name: string };
 }
 
 export interface DriverVehicle {

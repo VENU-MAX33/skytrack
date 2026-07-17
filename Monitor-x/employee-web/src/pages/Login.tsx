@@ -59,7 +59,8 @@ export default function Login() {
   return (
     <div className="app-shell flex flex-col justify-center px-6 py-10 min-h-screen">
       <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-[#004b87]">MonitorX Employee</h1>
+        <img src="/skytrack-logo.png" alt="SkyTrack" className="h-32 w-full object-contain mb-3" />
+        <h1 className="text-2xl font-bold text-[#004b87]">SkyTrack Employee</h1>
         <div className="text-[13px] text-[#595959] mt-1">Sign in to view your cab</div>
       </div>
 
@@ -76,7 +77,6 @@ export default function Login() {
             placeholder="Enter your phone number"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            autoFocus
           />
           <button className="btn btn-blue w-full" disabled={busy || !phone.trim()}>
             {busy ? 'Sending OTP…' : 'Send OTP'}
@@ -99,7 +99,6 @@ export default function Login() {
             placeholder="Enter 6-digit OTP"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            autoFocus
           />
           <button className="btn btn-blue w-full" disabled={busy || code.length !== 6}>
             {busy ? 'Verifying…' : 'Verify & Sign In'}

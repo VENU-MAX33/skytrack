@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface SosConfigDoc {
   alertPhone: string; // SMS this number on every new SOS alert
@@ -11,4 +12,4 @@ const sosConfigSchema = new Schema<SosConfigDoc>(
   { timestamps: true }
 );
 
-export const SosConfig = model<SosConfigDoc>('SosConfig', sosConfigSchema);
+export const SosConfig = tenantModel<SosConfigDoc>('SosConfig', sosConfigSchema);

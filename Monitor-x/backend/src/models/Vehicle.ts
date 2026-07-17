@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface VehicleDoc {
   rtoNo: string;
@@ -30,7 +31,7 @@ export interface VehicleDoc {
 }
 
 const vehicleSchema = new Schema<VehicleDoc>({
-  rtoNo: { type: String, required: true, unique: true },
+  rtoNo: { type: String, required: true },
   seatCount: { type: String, default: '' },
   model: { type: String, default: '' },
   taxExpiry: { type: String, default: '' },
@@ -56,4 +57,6 @@ const vehicleSchema = new Schema<VehicleDoc>({
   lastPingAt: { type: Date, default: null },
 });
 
-export const Vehicle = model<VehicleDoc>('Vehicle', vehicleSchema);
+vehicleSchema.index({ companyId: 1, rtoNo: 1 }, { unique: true });
+
+export const Vehicle = tenantModel<VehicleDoc>('Vehicle', vehicleSchema);

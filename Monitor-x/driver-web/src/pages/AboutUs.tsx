@@ -25,7 +25,7 @@ export default function AboutUs() {
 
       <div className="card m-3 p-4 space-y-4">
         <div>
-          <div className="font-bold text-[16px]">MonitorX Driver</div>
+          <div className="font-bold text-[16px]">SkyTrack Driver</div>
           <div className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Trip management for drivers — see assigned trips, verify pickups by OTP, and navigate
             to each stop.

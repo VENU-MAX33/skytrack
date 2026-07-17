@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useCallback, FormEvent } from "react";
 import { KeyRound, Plus, X, Trash2 } from "lucide-react";
 import { getStaffAccounts, createStaffAccount, deleteStaffAccount } from "../api";
 import type { StaffAccount } from "../api/staff";
@@ -18,15 +18,15 @@ export default function StaffManagement() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     getStaffAccounts()
       .then(setStaff)
       .catch((err: Error) => toast.error(`Failed to load staff logins: ${err.message}`))
       .finally(() => setLoading(false));
-  }
+  }, [toast]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -142,7 +142,6 @@ export default function StaffManagement() {
                   className={INPUT}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  autoFocus
                 />
               </FormField>
               <FormField label="Login Email" required>

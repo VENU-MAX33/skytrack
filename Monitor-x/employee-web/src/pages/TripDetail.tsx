@@ -67,10 +67,8 @@ export default function TripDetail() {
         </div>
         {trip.schedule && (
           <div className="card p-4 border-l-4 border-l-[#004b87]">
-            <div className="font-semibold text-[#004b87] mb-2">Scheduled & Live ETA</div>
-            <Row label="Driver starts by" value={formatTripTime(trip.schedule.driverReportAt)} />
-            <Row label={trip.type === 'Drop' ? 'Expected drop' : 'Driver reaches you'} value={formatTripTime(trip.schedule.stops[0]?.liveEtaAt ?? trip.schedule.stops[0]?.plannedAt)} valueClass="text-[#004b87]" />
-            <Row label={trip.type === 'Drop' ? 'Route starts' : 'Office arrival'} value={formatTripTime(trip.type === 'Drop' ? trip.schedule.scheduledStartAt : trip.schedule.scheduledEndAt)} />
+            <div className="font-semibold text-[#004b87] mb-2">Your Driver Reach Time</div>
+            <Row label={trip.type === 'Drop' ? 'Your drop time' : 'Driver expected at your location'} value={formatTripTime(trip.schedule.stops[0]?.plannedAt)} valueClass="text-[#004b87]" />
           </div>
         )}
         <div className="card p-4">

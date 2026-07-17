@@ -3,6 +3,7 @@ import { Driver } from '../models/Driver.js';
 import { toDriverDTO } from '../mappers.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import type { Driver as DriverDTO } from '../types/dto.js';
+import { assertPhoneAvailable, normalizePhone } from '../services/phone-login.service.js';
 
 export const driversRouter = Router();
 
@@ -18,7 +19,7 @@ const DRIVER_FIELDS = [
 function pickDriverFields(body: Partial<DriverDTO>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of DRIVER_FIELDS) {
-    if (body[key] !== undefined) out[key] = body[key];
+    if (body[key] !== undefined) out[key] = key === 'contact' && body[key] ? normalizePhone(String(body[key])) : body[key];
   }
   return out;
 }
@@ -27,12 +28,8 @@ function pickDriverFields(body: Partial<DriverDTO>): Record<string, unknown> {
 async function assertContactUnique(contact: string | undefined, excludeName?: string): Promise<void> {
   const c = contact?.trim();
   if (!c) return;
-  const query: Record<string, unknown> = { contact: c };
-  if (excludeName) query.name = { $ne: excludeName };
-  const existing = await Driver.findOne(query);
-  if (existing) {
-    throw new HttpError(409, `This mobile number is already registered to driver ${existing.name}`);
-  }
+  const current = excludeName ? await Driver.findOne({ name: excludeName }).select('_id') : null;
+  await assertPhoneAvailable('driver', c, current?._id);
 }
 
 async function prepareDriverBulk(rows: Partial<DriverDTO>[]): Promise<{
@@ -48,6 +45,11 @@ async function prepareDriverBulk(rows: Partial<DriverDTO>[]): Promise<{
   const existingContacts = new Map(existing.map((driver) => [driver.contact, driver.name]));
   const seenDls = new Set<string>();
   const seenContacts = new Set<string>();
+  const globalContactErrors = new Map<string, string>();
+  await Promise.all(contacts.map(async (contact) => {
+    try { await assertPhoneAvailable('driver', contact); }
+    catch (error) { globalContactErrors.set(contact, (error as Error).message); }
+  }));
   const prepared: Record<string, unknown>[] = [];
   const errors: { row: number; reasons: string[] }[] = [];
 
@@ -65,6 +67,7 @@ async function prepareDriverBulk(rows: Partial<DriverDTO>[]): Promise<{
     if (dlNumber && existingDls.has(dlKey)) reasons.push(`Driver with DL ${dlNumber} already exists`);
     const contactOwner = contact ? existingContacts.get(contact) : undefined;
     if (contactOwner) reasons.push(`Contact is already registered to ${contactOwner}`);
+    else if (contact && globalContactErrors.has(contact)) reasons.push(globalContactErrors.get(contact)!);
     if (dlNumber) seenDls.add(dlKey);
     if (contact) seenContacts.add(contact);
     if (reasons.length) errors.push({ row: index + 2, reasons });

@@ -15,7 +15,7 @@ const ADMIN_ONLY_PREFIXES = ['/staff-management'];
 
 /** Single source of truth for route access, shared by ProtectedRoute and Sidebar filtering. */
 export function isPathAllowed(role: AdminRole, pathname: string): boolean {
-  if (role === 'admin') return true;
+  if (role === 'admin' || role === 'platform-owner') return true;
   return !STAFF_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p)) &&
     !ADMIN_ONLY_PREFIXES.some((p) => pathname.startsWith(p));
 }

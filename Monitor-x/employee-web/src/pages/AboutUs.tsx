@@ -25,7 +25,7 @@ export default function AboutUs() {
 
       <div className="card m-3 p-4 space-y-4">
         <div>
-          <div className="font-bold text-[16px]">MonitorX Employee</div>
+          <div className="font-bold text-[16px]">SkyTrack Employee</div>
           <div className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Cab dashboard for employees — see your trips, share your live location, and request
             pickup location changes.

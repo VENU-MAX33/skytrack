@@ -50,6 +50,7 @@ export interface EmployeeUser {
   name: string;
   contact: string;
   role: 'employee';
+  company?: { code: string; name: string };
 }
 
 export interface EmployeeProfile {

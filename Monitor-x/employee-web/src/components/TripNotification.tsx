@@ -30,7 +30,7 @@ export default function TripNotification() {
             {newTrip.id} · {newTrip.type} · {newTrip.route || newTrip.location}
           </div>
           <div className="text-[11px] opacity-90 mt-1">
-            {newTrip.type === 'Drop' ? 'Expected drop' : 'Driver reaches you'} {format(myStop?.liveEtaAt ?? myStop?.plannedAt)} · {newTrip.type === 'Drop' ? 'Starts' : 'Office'} {format(newTrip.type === 'Drop' ? newTrip.schedule?.scheduledStartAt : newTrip.schedule?.scheduledEndAt)}
+            {newTrip.type === 'Drop' ? 'Your drop time' : 'Driver expected at your location'} {format(myStop?.plannedAt)}
           </div>
         </div>
         <div className="flex gap-2 items-center shrink-0">

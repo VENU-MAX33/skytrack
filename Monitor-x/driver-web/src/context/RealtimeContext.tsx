@@ -21,9 +21,13 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const socketRef = useSocket(!!user);
-  const [sosAlert, setSosAlert] = useState<SosAlert | null>(null);
-  const [newTrip, setNewTrip] = useState<DriverTrip | null>(null);
-  const [empLocation, setEmpLocation] = useState<EmpLocationUpdate | null>(null);
+  const sessionKey = `${user?.contact ?? 'anonymous'}:${user?.company?.code ?? ''}`;
+  const [sosState, setSosState] = useState<{ key: string; value: SosAlert | null }>({ key: sessionKey, value: null });
+  const [tripState, setTripState] = useState<{ key: string; value: DriverTrip | null }>({ key: sessionKey, value: null });
+  const [locationState, setLocationState] = useState<{ key: string; value: EmpLocationUpdate | null }>({ key: sessionKey, value: null });
+  const sosAlert = sosState.key === sessionKey ? sosState.value : null;
+  const newTrip = tripState.key === sessionKey ? tripState.value : null;
+  const empLocation = locationState.key === sessionKey ? locationState.value : null;
 
   const on = useCallback(
     (event: string, handler: Handler) => {
@@ -39,10 +43,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const socket = socketRef.current;
     if (!socket) return;
-    const onSos = (alert: SosAlert) => setSosAlert(alert);
-    const onAck = () => setSosAlert(null);
-    const onFrozen = (trip: DriverTrip) => setNewTrip(trip);
-    const onEmpLoc = (upd: EmpLocationUpdate) => setEmpLocation(upd);
+    const onSos = (alert: SosAlert) => setSosState({ key: sessionKey, value: alert });
+    const onAck = () => setSosState({ key: sessionKey, value: null });
+    const onFrozen = (trip: DriverTrip) => setTripState({ key: sessionKey, value: trip });
+    const onEmpLoc = (upd: EmpLocationUpdate) => setLocationState({ key: sessionKey, value: upd });
     socket.on('sos:alert', onSos);
     socket.on('sos:acknowledged', onAck);
     socket.on('trip:frozen', onFrozen);
@@ -53,11 +57,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.off('trip:frozen', onFrozen);
       socket.off('employee:location', onEmpLoc);
     };
-  }, [socketRef, user]);
+  }, [socketRef, user, sessionKey]);
 
-  const clearSos = useCallback(() => setSosAlert(null), []);
-  const clearNewTrip = useCallback(() => setNewTrip(null), []);
-  const clearEmpLocation = useCallback(() => setEmpLocation(null), []);
+  const clearSos = useCallback(() => setSosState({ key: sessionKey, value: null }), [sessionKey]);
+  const clearNewTrip = useCallback(() => setTripState({ key: sessionKey, value: null }), [sessionKey]);
+  const clearEmpLocation = useCallback(() => setLocationState({ key: sessionKey, value: null }), [sessionKey]);
 
   return (
     <RealtimeContext.Provider value={{ on, sosAlert, clearSos, newTrip, clearNewTrip, empLocation, clearEmpLocation }}>

@@ -91,7 +91,7 @@ const navigation: NavItem[] = [
 ];
 
 function visibleFor(role: AdminRole) {
-  return (item: NavItem) => !item.roles || item.roles.includes(role);
+  return (item: NavItem) => !item.roles || item.roles.includes(role) || (role === 'platform-owner' && item.roles.includes('admin'));
 }
 
 // Each group with sub-options gets its own light color — the parent and its
@@ -106,7 +106,12 @@ const GROUP_THEME: Record<string, { text: string; bg: string; icon: string }> = 
 };
 const DEFAULT_THEME = { text: "#0047B2", bg: "#E8F4FD", icon: "#0047B2" };
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>(["Masters"]);
   const location = useLocation();
   const { user } = useAuth();
@@ -130,7 +135,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="main-sidebar">
+    <aside className={`main-sidebar ${open ? "is-open" : ""}`} aria-label="Admin navigation">
       <ul className="sidebar-menu">
         <li className="header text-[#848484] text-[12px] px-4 py-3 uppercase tracking-wide">
           Navigation Menu
@@ -175,6 +180,7 @@ export default function Sidebar() {
                           <li key={child.label}>
                             <Link
                               to={child.href}
+                              onClick={onClose}
                               className="flex items-center gap-3 pl-8 pr-5 py-2 text-[13px] transition-colors hover:brightness-95"
                               style={
                                 childActive
@@ -194,6 +200,7 @@ export default function Sidebar() {
               ) : (
                 <Link
                   to={item.href}
+                  onClick={onClose}
                   className={`flex items-center gap-3 px-5 py-2 text-[14px] transition-colors ${
                     isActive
                       ? "bg-[#0047B2] text-white"

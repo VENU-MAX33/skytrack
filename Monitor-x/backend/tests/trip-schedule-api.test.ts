@@ -11,7 +11,6 @@ import {
   stopTestDb,
   tokenFor,
 } from './helpers.js';
-import { CompanyConfig } from '../src/models/CompanyConfig.js';
 import { Route } from '../src/models/Route.js';
 import { Vehicle } from '../src/models/Vehicle.js';
 
@@ -23,7 +22,6 @@ async function setupScheduledTrip() {
   const admin = await makeAdmin('admin');
   const token = tokenFor(admin._id.toString(), 'admin');
   const driver = await makeDriver();
-  await CompanyConfig.create({ name: 'MonitorX', lat: 12.9716, lng: 77.5946 });
   await Route.create({ routeId: 1, name: 'South Route', type: 'Both' });
   await Vehicle.create({
     rtoNo: 'KA01MX1000',
@@ -55,29 +53,29 @@ async function setupScheduledTrip() {
   return { token, trip: created.body };
 }
 
-test('trip creation automatically calculates driver, stop and final times', async () => {
+test('trip creation waits for manually entered employee reach times', async () => {
   const { trip } = await setupScheduledTrip();
-  assert.equal(trip.schedule.mode, 'auto');
-  assert.equal(trip.schedule.stops.length, 1);
-  assert.equal(trip.schedule.stops[0].employeeId, 'EMP100');
-  assert.ok(new Date(trip.schedule.driverReportAt) < new Date(trip.schedule.scheduledStartAt));
-  assert.equal(trip.schedule.scheduledEndAt, '2026-07-17T03:25:00.000Z');
+  assert.equal(trip.schedule, null);
 });
 
-test('admin can override a calculated schedule and reset it to automatic', async () => {
+test('admin can save a time-only employee reach schedule', async () => {
   const { token, trip } = await setupScheduledTrip();
   const manual = await request(app)
     .put(`/api/trips/${trip.id}/schedule`)
     .set('Authorization', `Bearer ${token}`)
-    .send({ driverReportAt: '2026-07-17T02:00:00.000Z' });
+    .send({ stops: [{ employeeId: 'EMP100', reachTime: '08:15' }] });
   assert.equal(manual.status, 200);
   assert.equal(manual.body.schedule.mode, 'manual');
-  assert.equal(manual.body.schedule.driverReportAt, '2026-07-17T02:00:00.000Z');
+  assert.equal(manual.body.schedule.stops[0].employeeId, 'EMP100');
+  assert.equal(manual.body.schedule.stops[0].plannedAt, '2026-07-17T02:45:00.000Z');
+});
 
-  const automatic = await request(app)
-    .put(`/api/trips/${trip.id}/schedule/recalculate`)
+test('trip cannot freeze until every employee has a reach time', async () => {
+  const { token, trip } = await setupScheduledTrip();
+  const frozen = await request(app)
+    .put(`/api/trips/${trip.id}/freeze`)
     .set('Authorization', `Bearer ${token}`)
     .send({});
-  assert.equal(automatic.status, 200);
-  assert.equal(automatic.body.schedule.mode, 'auto');
+  assert.equal(frozen.status, 422);
+  assert.match(frozen.body.error, /reach times/i);
 });

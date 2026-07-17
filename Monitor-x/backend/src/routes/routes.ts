@@ -11,7 +11,7 @@ export const routesRouter = Router();
 
 // Reads (route list/detail) stay open to staff — Master Routing's map needs them.
 // Only creating/editing/deleting routes is admin-only.
-const adminOnly = requirePermission((role) => role === 'admin');
+const adminOnly = requirePermission((role) => role === 'admin' || role === 'platform-owner');
 
 const MAX_ROUTES = 7;
 

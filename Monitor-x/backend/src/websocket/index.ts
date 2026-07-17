@@ -1,15 +1,20 @@
 import type { Server as HttpServer } from 'http';
 import { Server as IOServer, type Socket } from 'socket.io';
 import { isCorsOriginAllowed } from '../config/env.js';
-import { verifyToken } from '../middleware/auth.js';
+import { principalIsValid, verifyToken } from '../middleware/auth.js';
+import { currentCompanyId } from '../tenancy/context.js';
 
 let io: IOServer | null = null;
 
 export const rooms = {
-  admin: 'admin',
+  admin: (companyId: string) => `company:${companyId}:admin`,
   driver: (driverId: string) => `driver:${driverId}`,
   employee: (employeeId: string) => `employee:${employeeId}`,
 };
+
+function activeAdminRoom(): string {
+  return rooms.admin(currentCompanyId() ?? 'unscoped');
+}
 
 export function initSocket(httpServer: HttpServer): IOServer {
   io = new IOServer(httpServer, {
@@ -20,11 +25,12 @@ export function initSocket(httpServer: HttpServer): IOServer {
   });
 
   // Authenticate every socket using the same JWT as the REST API.
-  io.use((socket: Socket, next) => {
+  io.use(async (socket: Socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('Missing auth token'));
     try {
       const payload = verifyToken(token);
+      if (!(await principalIsValid(payload))) return next(new Error('Account is no longer active'));
       socket.data.auth = payload;
       next();
     } catch {
@@ -33,8 +39,8 @@ export function initSocket(httpServer: HttpServer): IOServer {
   });
 
   io.on('connection', (socket: Socket) => {
-    const { role, sub } = socket.data.auth as { role: string; sub: string };
-    if (role === 'admin') socket.join(rooms.admin);
+    const { role, sub, companyId } = socket.data.auth as { role: string; sub: string; companyId?: string };
+    if (['platform-owner', 'admin', 'staff'].includes(role) && companyId) socket.join(rooms.admin(companyId));
     else if (role === 'driver') socket.join(rooms.driver(sub));
     else if (role === 'employee') socket.join(rooms.employee(sub));
   });
@@ -61,7 +67,7 @@ export function emitTripFrozen(payload: {
   payload.employeeTrips.forEach(({ employeeId, trip }) =>
     i.to(rooms.employee(employeeId)).emit('trip:frozen', trip)
   );
-  i.to(rooms.admin).emit('trip:frozen', payload.adminTrip);
+  i.to(activeAdminRoom()).emit('trip:frozen', payload.adminTrip);
 }
 
 /** Tell all trip participants to refresh their displayed planned/live times. */
@@ -74,7 +80,7 @@ export function emitTripScheduleUpdate(payload: {
   const event = { tripId: payload.tripId };
   i.to(rooms.driver(payload.driverId)).emit('trip:schedule', event);
   payload.employeeIds.forEach((id) => i.to(rooms.employee(id)).emit('trip:schedule', event));
-  i.to(rooms.admin).emit('trip:schedule', event);
+  i.to(activeAdminRoom()).emit('trip:schedule', event);
 }
 
 /** Broadcast a trip status change (started/completed/etc.) to all parties. */
@@ -86,7 +92,7 @@ export function emitTripStatus(payload: {
   const i = getIo();
   i.to(rooms.driver(payload.driverId)).emit('trip:status', payload.trip);
   payload.employeeIds.forEach((id) => i.to(rooms.employee(id)).emit('trip:status', payload.trip));
-  i.to(rooms.admin).emit('trip:status', payload.trip);
+  i.to(activeAdminRoom()).emit('trip:status', payload.trip);
 }
 
 /** Notify a specific employee that a pickup OTP was sent (the code goes by SMS only). */
@@ -103,32 +109,32 @@ export function emitEmployeeVerified(payload: {
   const i = getIo();
   i.to(rooms.employee(payload.employeeId)).emit('employee:verified', payload);
   i.to(rooms.driver(payload.driverId)).emit('employee:verified', payload);
-  i.to(rooms.admin).emit('employee:verified', payload);
+  i.to(activeAdminRoom()).emit('employee:verified', payload);
 }
 
 /** HIGH-PRIORITY: broadcast an SOS alert to admins and the assigned driver. */
 export function emitSos(payload: { alert: unknown; driverId?: string }): void {
   const i = getIo();
-  i.to(rooms.admin).emit('sos:alert', payload.alert);
+  i.to(activeAdminRoom()).emit('sos:alert', payload.alert);
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('sos:alert', payload.alert);
 }
 
 export function emitSosAck(payload: { alert: unknown; driverId?: string }): void {
   const i = getIo();
-  i.to(rooms.admin).emit('sos:acknowledged', payload.alert);
+  i.to(activeAdminRoom()).emit('sos:acknowledged', payload.alert);
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('sos:acknowledged', payload.alert);
 }
 
 /** Broadcast an employee's escort report to admins and the assigned driver. */
 export function emitEscortReport(payload: { report: unknown; driverId?: string }): void {
   const i = getIo();
-  i.to(rooms.admin).emit('escort:report', payload.report);
+  i.to(activeAdminRoom()).emit('escort:report', payload.report);
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('escort:report', payload.report);
 }
 
 export function emitEscortReportAck(payload: { report: unknown; driverId?: string }): void {
   const i = getIo();
-  i.to(rooms.admin).emit('escort:report:acknowledged', payload.report);
+  i.to(activeAdminRoom()).emit('escort:report:acknowledged', payload.report);
   if (payload.driverId) i.to(rooms.driver(payload.driverId)).emit('escort:report:acknowledged', payload.report);
 }
 
@@ -147,12 +153,12 @@ export function emitEmployeeLocation(payload: {
   if (payload.driverMongoId) {
     i.to(rooms.driver(payload.driverMongoId)).emit('employee:location', payload);
   }
-  i.to(rooms.admin).emit('employee:location', payload);
+  i.to(activeAdminRoom()).emit('employee:location', payload);
 }
 
 /** Push a new dashboard notification (SOS, location change, …) to admins. */
 export function emitNotification(payload: unknown): void {
-  getIo().to(rooms.admin).emit('notification:new', payload);
+  getIo().to(activeAdminRoom()).emit('notification:new', payload);
 }
 
 /** Live vehicle GPS position (phone-as-GPS ping) for the admin tracking map. */
@@ -163,10 +169,10 @@ export function emitVehiclePosition(payload: {
   status: string;
   speed: number;
 }): void {
-  getIo().to(rooms.admin).emit('vehicle:position', payload);
+  getIo().to(activeAdminRoom()).emit('vehicle:position', payload);
 }
 
 /** Notify admin that a new employee feedback entry has been submitted. */
 export function emitFeedbackNew(payload: unknown): void {
-  getIo().to(rooms.admin).emit('feedback:new', payload);
+  getIo().to(activeAdminRoom()).emit('feedback:new', payload);
 }

@@ -78,6 +78,7 @@ export default function TripDetail() {
   const [office, setOffice] = useState<CompanyConfig | null>(null);
   // Latest live position per employee — drives the map pins (banner shows only the newest)
   const [liveLocs, setLiveLocs] = useState<Record<string, EmpLocationUpdate>>({});
+  const [now, setNow] = useState(() => Date.now());
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {
@@ -115,6 +116,10 @@ export default function TripDetail() {
   }, [on, id]);
 
   useEffect(() => () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   async function handleSendOtp(emp: DriverTripEmployee) {
     setBusy(`send-${emp.id}`);
@@ -172,7 +177,7 @@ export default function TripDetail() {
   }
 
   function minsAgo(ts: string) {
-    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+    const diff = Math.floor((now - new Date(ts).getTime()) / 60000);
     if (diff < 1) return 'just now';
     return `${diff} min ago`;
   }
@@ -206,20 +211,6 @@ export default function TripDetail() {
         </div>
       </header>
 
-      {trip.schedule && (
-        <div className="mx-3 mt-3 rounded-xl border border-[#d8d1ef] bg-[#f8f6ff] p-3">
-          <div className="text-[11px] font-bold text-[#6a5ca1] tracking-wide mb-2">TRIP SCHEDULE · {trip.schedule.mode === 'auto' ? 'AUTO' : 'ADMIN EDITED'}</div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <TimeBox label="Report / start by" value={formatTripTime(trip.schedule.driverReportAt)} />
-            <TimeBox label="Route departure" value={formatTripTime(trip.schedule.scheduledStartAt)} />
-            <TimeBox label="Final arrival" value={formatTripTime(trip.schedule.scheduledEndAt)} />
-          </div>
-          {trip.schedule.etaUpdatedAt && (
-            <div className="text-[10px] text-[#777] text-right mt-2">Live ETA updated {formatTripTime(trip.schedule.etaUpdatedAt)}</div>
-          )}
-        </div>
-      )}
-
       {/* Sequential pickup flow: next stop → OTP verify → next stop → … → office */}
       {nextStop && (
         <div className="mx-3 mt-3 rounded-xl border-2 border-[#6a5ca1] bg-[#f5f3fb] p-3">
@@ -243,7 +234,7 @@ export default function TripDetail() {
             )}
           </div>
           <div className="text-[11px] text-[#888] mt-2">
-            Reach the pickup point, then send &amp; verify the OTP below to continue.
+            Reach by {formatTripTime(trip.schedule?.stops.find((stop) => stop.employeeId === nextStop.id)?.plannedAt)}. Then send &amp; verify the OTP below to continue.
           </div>
         </div>
       )}
@@ -388,8 +379,7 @@ export default function TripDetail() {
                     const stop = trip.schedule!.stops.find((candidate) => candidate.employeeId === emp.id)!;
                     return (
                       <div className="text-[12px] font-semibold text-[#6a5ca1] mt-1">
-                        Planned {formatTripTime(stop.plannedAt)}
-                        {stop.liveEtaAt ? ` · Live ETA ${formatTripTime(stop.liveEtaAt)}` : ''}
+                        {trip.type === 'Drop' ? 'Drop by' : 'Reach by'} {formatTripTime(stop.plannedAt)}
                       </div>
                     );
                   })()}
@@ -470,8 +460,4 @@ export default function TripDetail() {
       )}
     </div>
   );
-}
-
-function TimeBox({ label, value }: { label: string; value: string }) {
-  return <div className="bg-white rounded-lg p-2"><div className="text-[10px] text-[#777]">{label}</div><div className="text-[12px] font-bold text-[#333] mt-1">{value}</div></div>;
 }

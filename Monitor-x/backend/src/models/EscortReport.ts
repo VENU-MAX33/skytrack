@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export type EscortReportStatus = 'open' | 'acknowledged';
 
@@ -33,4 +34,4 @@ const escortReportSchema = new Schema<EscortReportDoc>(
 
 escortReportSchema.index({ status: 1, createdAt: -1 });
 
-export const EscortReport = model<EscortReportDoc>('EscortReport', escortReportSchema);
+export const EscortReport = tenantModel<EscortReportDoc>('EscortReport', escortReportSchema);

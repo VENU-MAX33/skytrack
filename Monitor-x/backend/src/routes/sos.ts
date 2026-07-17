@@ -34,11 +34,10 @@ sosRouter.post(
     let driverObjectId: Types.ObjectId | undefined;
     let tripObjectId: Types.ObjectId | undefined;
     if (tripId) {
-      const trip = await Trip.findOne({ tripId });
-      if (trip) {
-        tripObjectId = trip._id;
-        driverObjectId = trip.driverId ?? undefined;
-      }
+      const trip = await Trip.findOne({ tripId, employeeIds: req.auth!.sub });
+      if (!trip) throw new HttpError(404, 'Trip not found or you are not on this trip');
+      tripObjectId = trip._id;
+      driverObjectId = trip.driverId ?? undefined;
     }
 
     // Fetch employee name/contact for the SMS notification
@@ -53,6 +52,7 @@ sosRouter.post(
       photoBase64,
       employeeName: employee?.name,
       employeeContact: employee?.contact,
+      tripReference: tripObjectId ? tripId : undefined,
     });
     await alert.populate(SOS_POPULATE);
     const dto = toSosDTO(alert as unknown as PopulatedSos);
@@ -72,7 +72,7 @@ sosRouter.post(
 // GET /api/sos — admin lists alerts (open first)
 sosRouter.get(
   '/',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const { status } = req.query as { status?: string };
     const query = status ? { status } : {};
@@ -84,7 +84,7 @@ sosRouter.get(
 // PUT /api/sos/:id/acknowledge — admin acknowledges an alert
 sosRouter.put(
   '/:id/acknowledge',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const admin = await User.findById(req.auth!.sub);
     const updated = await acknowledgeSos(req.params.id, admin?.name ?? 'Admin');
@@ -100,7 +100,7 @@ sosRouter.put(
 // DELETE /api/sos/:id — MAIN admin only (staff cannot delete alert history)
 sosRouter.delete(
   '/:id',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const doc = await SOSAlert.findByIdAndDelete(req.params.id);
     if (!doc) throw new HttpError(404, 'SOS alert not found');
@@ -111,7 +111,7 @@ sosRouter.delete(
 // GET /api/sos/config — admin gets alert phone config
 sosRouter.get(
   '/config',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (_req, res) => {
     const config = await SosConfig.findOne();
     res.json({ alertPhone: config?.alertPhone ?? '' });
@@ -121,7 +121,7 @@ sosRouter.get(
 // PUT /api/sos/config — admin saves alert phone number
 sosRouter.put(
   '/config',
-  requireRole('admin'),
+  requireRole('platform-owner', 'admin'),
   asyncHandler(async (req, res) => {
     const { alertPhone } = req.body as { alertPhone?: string };
     const config = await SosConfig.findOneAndUpdate(

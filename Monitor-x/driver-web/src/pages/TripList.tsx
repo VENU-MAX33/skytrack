@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bus, Users, ChevronRight, Menu } from 'lucide-react';
-import { getDriverTrips } from '../api/trips';
+import { getDriverTrips, getDriverTripReportSummary } from '../api/trips';
 import type { DriverTrip } from '../api/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useRealtime } from '../context/RealtimeContext';
 import { useSettingsSheet } from '../context/SettingsSheetContext';
 
-type Tab = 'trips' | 'ongoing' | 'sheet';
+type Tab = 'trips' | 'ongoing';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'trips', label: 'Trips' },
   { key: 'ongoing', label: 'Ongoing' },
-  { key: 'sheet', label: 'Trip Sheet' },
 ];
 
 const ONGOING = ['Trip Started', 'Pickup Started', 'Drop Started'];
-const DONE = ['Completed', 'Completed Late', 'No Show Completed'];
+
+function localToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
 
 export default function TripList() {
   const { user } = useAuth();
@@ -27,10 +31,11 @@ export default function TripList() {
   const { openSheet } = useSettingsSheet();
   const [tab, setTab] = useState<Tab>('trips');
   const [trips, setTrips] = useState<DriverTrip[]>([]);
+  const [todayCompleted, setTodayCompleted] = useState(0);
 
   const load = useCallback(() => {
-    getDriverTrips()
-      .then(setTrips)
+    Promise.all([getDriverTrips(), getDriverTripReportSummary(localToday())])
+      .then(([tripData, summary]) => { setTrips(tripData); setTodayCompleted(summary.dailyCompleted); })
       .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load trips'));
   }, [toast]);
 
@@ -48,8 +53,7 @@ export default function TripList() {
 
   const filtered = trips.filter((t) => {
     if (tab === 'ongoing') return ONGOING.includes(t.status);
-    if (tab === 'sheet') return DONE.includes(t.status);
-    return !ONGOING.includes(t.status) && !DONE.includes(t.status);
+    return !ONGOING.includes(t.status) && !t.completedAt;
   });
 
   return (
@@ -60,7 +64,7 @@ export default function TripList() {
         </button>
         <div>
           <div className="font-bold">{user?.name}</div>
-          <div className="text-[12px] opacity-90">{user?.vendor || 'driver'}</div>
+          <div className="text-[12px] opacity-90">{user?.vendor || 'driver'} · Today: {todayCompleted} completed</div>
         </div>
       </header>
 

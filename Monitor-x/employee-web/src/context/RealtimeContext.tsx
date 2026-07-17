@@ -19,8 +19,11 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const socketRef = useSocket(!!user);
-  const [otp, setOtp] = useState<OtpNotification | null>(null);
-  const [newTrip, setNewTrip] = useState<EmployeeTrip | null>(null);
+  const sessionKey = `${user?.id ?? 'anonymous'}:${user?.company?.code ?? ''}`;
+  const [otpState, setOtpState] = useState<{ key: string; value: OtpNotification | null }>({ key: sessionKey, value: null });
+  const [tripState, setTripState] = useState<{ key: string; value: EmployeeTrip | null }>({ key: sessionKey, value: null });
+  const otp = otpState.key === sessionKey ? otpState.value : null;
+  const newTrip = tripState.key === sessionKey ? tripState.value : null;
 
   const on = useCallback(
     (event: string, handler: Handler) => {
@@ -36,18 +39,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const socket = socketRef.current;
     if (!socket) return;
-    const onOtp = (payload: OtpNotification) => setOtp(payload);
-    const onFrozen = (trip: EmployeeTrip) => setNewTrip(trip);
+    const onOtp = (payload: OtpNotification) => setOtpState({ key: sessionKey, value: payload });
+    const onFrozen = (trip: EmployeeTrip) => setTripState({ key: sessionKey, value: trip });
     socket.on('otp:sent', onOtp);
     socket.on('trip:frozen', onFrozen);
     return () => {
       socket.off('otp:sent', onOtp);
       socket.off('trip:frozen', onFrozen);
     };
-  }, [socketRef, user]);
+  }, [socketRef, user, sessionKey]);
 
-  const clearOtp = useCallback(() => setOtp(null), []);
-  const clearNewTrip = useCallback(() => setNewTrip(null), []);
+  const clearOtp = useCallback(() => setOtpState({ key: sessionKey, value: null }), [sessionKey]);
+  const clearNewTrip = useCallback(() => setTripState({ key: sessionKey, value: null }), [sessionKey]);
 
   return (
     <RealtimeContext.Provider value={{ on, otp, clearOtp, newTrip, clearNewTrip }}>

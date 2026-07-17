@@ -18,7 +18,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<EmployeeUser | null>(() => {
     const stored = localStorage.getItem(USER_KEY);
     const token = localStorage.getItem(TOKEN_KEY);
-    return stored && token ? (JSON.parse(stored) as EmployeeUser) : null;
+    if (!stored || !token) return null;
+    const saved = JSON.parse(stored) as EmployeeUser;
+    if (!saved.company?.code) {
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
+    return saved;
   });
 
   useEffect(() => {
@@ -31,6 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const logout = useCallback(() => setUser(null), []);
+
+  useEffect(() => {
+    window.addEventListener('auth:unauthorized', logout);
+    return () => window.removeEventListener('auth:unauthorized', logout);
+  }, [logout]);
 
   const login = useCallback(async (phone: string, code: string) => {
     const { token, user: u } = await verifyOtp(phone, code);

@@ -8,6 +8,8 @@ import { signToken } from '../src/middleware/auth.js';
 import { Driver } from '../src/models/Driver.js';
 import { Employee } from '../src/models/Employee.js';
 import { User } from '../src/models/User.js';
+import { Company } from '../src/models/Company.js';
+import { LEGACY_COMPANY_ID } from '../src/tenancy/model.js';
 
 let mongod: MongoMemoryServer | null = null;
 let httpServer: http.Server | null = null;
@@ -16,6 +18,7 @@ let httpServer: http.Server | null = null;
 export async function startTestDb(): Promise<void> {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+  await Company.create({ _id: LEGACY_COMPANY_ID, code: 'TEST', name: 'Test Company', status: 'active' });
   // Init a Socket.IO server (not listening) so emit helpers used by routes work.
   if (!httpServer) {
     httpServer = http.createServer();
@@ -36,6 +39,7 @@ export async function clearDb(): Promise<void> {
   for (const key of Object.keys(collections)) {
     await collections[key].deleteMany({});
   }
+  await Company.create({ _id: LEGACY_COMPANY_ID, code: 'TEST', name: 'Test Company', status: 'active' });
 }
 
 export const app = createApp();
@@ -71,9 +75,11 @@ export async function makeAdmin(role: 'admin' | 'staff' = 'admin') {
     passwordHash,
     name: role === 'admin' ? 'Admin' : 'Staff',
     role,
+    companyId: LEGACY_COMPANY_ID,
+    active: true,
   });
 }
 
 export function tokenFor(sub: string, role: 'admin' | 'staff' | 'driver' | 'employee'): string {
-  return signToken({ sub, role });
+  return signToken({ sub, role, companyId: LEGACY_COMPANY_ID.toString() });
 }

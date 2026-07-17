@@ -13,6 +13,17 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function request(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw new ApiError(408, 'Request timed out. Check your connection and try again.');
+    throw new ApiError(0, navigator.onLine ? 'Could not reach the server. Please try again.' : 'You appear to be offline.');
+  } finally { clearTimeout(timer); }
+}
+
 async function handle<T>(res: Response, method: string, path: string): Promise<T> {
   if (res.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
@@ -38,7 +49,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   if (!BASE_URL) {
     throw new Error(`No BASE_URL configured for GET ${path}`);
   }
-  const res = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+  const res = await request(`${BASE_URL}${path}`, { headers: authHeaders() });
   return handle<T>(res, 'GET', path);
 }
 
@@ -46,7 +57,7 @@ export async function apiPost<T>(path: string, body: unknown, extraHeaders?: Rec
   if (!BASE_URL) {
     throw new Error(`No BASE_URL configured for POST ${path}`);
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await request(`${BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(), ...extraHeaders },
     body: JSON.stringify(body),
@@ -58,7 +69,7 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   if (!BASE_URL) {
     throw new Error(`No BASE_URL configured for PUT ${path}`);
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await request(`${BASE_URL}${path}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
@@ -70,6 +81,6 @@ export async function apiDelete<T = void>(path: string): Promise<T> {
   if (!BASE_URL) {
     throw new Error(`No BASE_URL configured for DELETE ${path}`);
   }
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE', headers: authHeaders() });
+  const res = await request(`${BASE_URL}${path}`, { method: 'DELETE', headers: authHeaders() });
   return handle<T>(res, 'DELETE', path);
 }

@@ -10,19 +10,27 @@ const RETRY_MS = 15_000;
  * comes up on its own without a manual restart.
  */
 export async function connectDb(): Promise<void> {
+  const safeTarget = (() => {
+    try {
+      const parsed = new URL(env.mongodbUri);
+      return `${parsed.protocol}//${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}${parsed.pathname}`;
+    } catch {
+      return 'configured MongoDB server';
+    }
+  })();
   let attempt = 0;
   for (;;) {
     attempt++;
     try {
       await mongoose.connect(env.mongodbUri, { serverSelectionTimeoutMS: 5000 });
-      console.log(`MongoDB connected: ${env.mongodbUri}`);
+      console.log(`MongoDB connected: ${safeTarget}`);
       return;
     } catch (err) {
       if (attempt === 1) {
         console.error(
           [
             '',
-            `Could not connect to MongoDB at ${env.mongodbUri}`,
+            `Could not connect to MongoDB at ${safeTarget}`,
             '',
             'Common causes:',
             '  1. MongoDB Atlas IP whitelist does not include your current public IP',

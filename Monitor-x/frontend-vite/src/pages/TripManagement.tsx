@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Bus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet, Trash2, Clock3, RefreshCw, Pencil } from "lucide-react";
-import { getTrips, getRosters, getVehicles, getEmployees, getDrivers, getRoutes, importDrivers, importVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle, updateTripEscort, recalculateTripSchedule, updateTripSchedule } from "../api";
+import { Bus, List, Grid3X3, X, Lock, ChevronDown, ChevronUp, ExternalLink, Download, Upload, FileSpreadsheet, Trash2, Clock3 } from "lucide-react";
+import { getTrips, getRosters, getVehicles, getEmployees, getDrivers, getRoutes, importDrivers, importVehicles, createTrip, freezeTrip, deleteTrip, changeTripVehicle, updateTripEscort, updateTripSchedule } from "../api";
 import type { Driver, Employee, Route, Trip, RosterEntry, Vehicle } from "../api";
 import Pagination from "../components/Pagination";
 import ImportPreviewModal from "../components/ImportPreviewModal";
@@ -24,77 +24,41 @@ function OfficeStop({ label }: { label: string }) {
   );
 }
 
-function formatScheduleTime(value: string | null | undefined): string {
+function formatReachTime(value: string | null | undefined): string {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
 }
 
-function toDateTimeLocal(value: string | null | undefined): string {
+function toTimeInput(value: string | null | undefined): string {
   if (!value) return "";
-  const date = new Date(value);
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
-    year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).formatToParts(date);
+  }).formatToParts(new Date(value));
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
-
-function localInputToIso(value: string): string {
-  return value ? new Date(`${value}:00+05:30`).toISOString() : "";
+  return `${get("hour")}:${get("minute")}`;
 }
 
 function SchedulePanel({ trip, canEdit, onUpdated }: { trip: Trip; canEdit: boolean; onUpdated: () => void }) {
   const toast = useToast();
-  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [reportAt, setReportAt] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
   const [stops, setStops] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setReportAt(toDateTimeLocal(trip.schedule?.driverReportAt));
-    setStartAt(toDateTimeLocal(trip.schedule?.scheduledStartAt));
-    setEndAt(toDateTimeLocal(trip.schedule?.scheduledEndAt));
-    setStops(Object.fromEntries((trip.schedule?.stops ?? []).map((stop) => [stop.employeeId, toDateTimeLocal(stop.plannedAt)])));
+    setStops(Object.fromEntries((trip.schedule?.stops ?? []).map((stop) => [stop.employeeId, toTimeInput(stop.plannedAt)])));
   }, [trip]);
-
-  async function recalculate() {
-    setBusy(true);
-    try {
-      await recalculateTripSchedule(trip.id);
-      toast.success(`Schedule recalculated for ${trip.id}`);
-      setEditing(false);
-      onUpdated();
-    } catch (error) {
-      toast.error(`Could not calculate schedule: ${(error as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function save() {
     setBusy(true);
     try {
       await updateTripSchedule(trip.id, {
-        driverReportAt: localInputToIso(reportAt),
-        scheduledStartAt: localInputToIso(startAt),
-        scheduledEndAt: localInputToIso(endAt),
-        stops: Object.entries(stops).map(([employeeId, plannedAt]) => ({
-          employeeId,
-          plannedAt: localInputToIso(plannedAt),
-        })),
+        stops: (trip.employees ?? []).map((employee) => ({ employeeId: employee.id, reachTime: stops[employee.id] ?? "" })),
       });
-      toast.success(`Manual schedule saved for ${trip.id}`);
-      setEditing(false);
+      toast.success(`Driver reach times saved for ${trip.id}`);
       onUpdated();
     } catch (error) {
       toast.error(`Could not save schedule: ${(error as Error).message}`);
@@ -103,70 +67,28 @@ function SchedulePanel({ trip, canEdit, onUpdated }: { trip: Trip; canEdit: bool
     }
   }
 
-  if (!trip.schedule) {
-    return (
-      <div className="mb-4 rounded border border-[#E6A817] bg-[#FFFBEB] p-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[13px] font-semibold text-[#8A5A00]">Schedule needs calculation</div>
-          <div className="text-[11px] text-[#8A5A00]">Check company and employee coordinates, then calculate again.</div>
-        </div>
-        {canEdit && <button disabled={busy} onClick={recalculate} className="px-3 py-2 rounded bg-[#0047B2] text-white text-[12px]">Calculate</button>}
-      </div>
-    );
-  }
-
   return (
     <div className="mb-4 rounded border border-[#CBD9F0] bg-white p-3">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <Clock3 className="w-4 h-4 text-[#0047B2]" />
-          <span className="text-[13px] font-semibold">Automatic Trip Schedule</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded ${trip.schedule.mode === "auto" ? "bg-[#E9FDEA] text-[#18751C]" : "bg-[#FFF4E5] text-[#B05A00]"}`}>
-            {trip.schedule.mode === "auto" ? "AUTO" : "ADMIN EDITED"}
-          </span>
+          <span className="text-[13px] font-semibold">Driver Reach Times</span>
+          <span className="text-[11px] text-[#848484]">Trip date: {trip.date}</span>
         </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <button disabled={busy} onClick={recalculate} className="flex items-center gap-1 px-2 py-1.5 border rounded text-[11px]"><RefreshCw className={`w-3 h-3 ${busy ? "animate-spin" : ""}`} /> Recalculate</button>
-            <button disabled={busy} onClick={() => setEditing((value) => !value)} className="flex items-center gap-1 px-2 py-1.5 border rounded text-[11px]"><Pencil className="w-3 h-3" /> Edit</button>
-          </div>
-        )}
       </div>
-      {editing ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
-            <ScheduleInput label="Driver report/start-by" value={reportAt} onChange={setReportAt} />
-            <ScheduleInput label="Route departure" value={startAt} onChange={setStartAt} />
-            <ScheduleInput label="Final arrival" value={endAt} onChange={setEndAt} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {trip.schedule.stops.map((stop) => (
-              <ScheduleInput key={stop.employeeId} label={`${stop.sequence}. ${stop.employeeName}`} value={stops[stop.employeeId] ?? ""} onChange={(value) => setStops((current) => ({ ...current, [stop.employeeId]: value }))} />
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setEditing(false)} className="px-3 py-2 border rounded text-[12px]">Cancel</button>
-            <button disabled={busy} onClick={save} className="px-3 py-2 rounded bg-[#18751C] text-white text-[12px]">{busy ? "Saving…" : "Save edited times"}</button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-4 gap-3 text-[11px]">
-          <ScheduleValue label="Driver report/start-by" value={formatScheduleTime(trip.schedule.driverReportAt)} />
-          <ScheduleValue label="Route departure" value={formatScheduleTime(trip.schedule.scheduledStartAt)} />
-          <ScheduleValue label="Final arrival" value={formatScheduleTime(trip.schedule.scheduledEndAt)} />
-          <ScheduleValue label="Distance / duration" value={`${(trip.schedule.distanceMeters / 1000).toFixed(1)} km · ${Math.ceil(trip.schedule.durationSeconds / 60)} min`} />
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {(trip.employees ?? []).map((employee, index) => (
+          <label key={employee.id} className="flex items-center justify-between gap-3 border rounded p-2 text-[12px]">
+            <span><strong>{index + 1}. {employee.name}</strong><br/><span className="text-[#848484]">{employee.id}</span></span>
+            {canEdit
+              ? <input aria-label={`Driver reach time for ${employee.name}`} type="time" value={stops[employee.id] ?? ""} onChange={(event) => setStops((current) => ({ ...current, [employee.id]: event.target.value }))} className="border rounded px-2 py-1.5 text-[12px]" />
+              : <span className="font-semibold text-[#0047B2]">{formatReachTime(trip.schedule?.stops.find((stop) => stop.employeeId === employee.id)?.plannedAt)}</span>}
+          </label>
+        ))}
+      </div>
+      {canEdit && <div className="flex justify-end mt-3"><button disabled={busy} onClick={save} className="px-3 py-2 rounded bg-[#18751C] text-white text-[12px] disabled:opacity-60">{busy ? "Saving…" : "Save reach times"}</button></div>}
     </div>
   );
-}
-
-function ScheduleInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="text-[11px] text-[#595959]">{label}<input type="datetime-local" value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-[12px]" /></label>;
-}
-
-function ScheduleValue({ label, value }: { label: string; value: string }) {
-  return <div><div className="text-[#848484]">{label}</div><div className="font-semibold text-[#222222] mt-0.5">{value}</div></div>;
 }
 
 export default function TripManagement() {
@@ -862,10 +784,6 @@ export default function TripManagement() {
                                       {emp.distance && (
                                         <div className="text-[11px] text-[#595959] mt-1">{emp.distance} km from office</div>
                                       )}
-                                      {trip.schedule?.stops.find((stop) => stop.employeeId === emp.id) && (() => {
-                                        const stop = trip.schedule!.stops.find((candidate) => candidate.employeeId === emp.id)!;
-                                        return <div className="text-[11px] text-[#0047B2] font-semibold mt-1">Planned {formatScheduleTime(stop.plannedAt)}{stop.liveEtaAt && stop.liveEtaAt !== stop.plannedAt ? ` · Live ETA ${formatScheduleTime(stop.liveEtaAt)}` : ""}</div>;
-                                      })()}
                                     </div>
                                   </div>
                                   <div className="text-[11px] text-[#595959] text-right shrink-0">
@@ -894,6 +812,9 @@ export default function TripManagement() {
           {paginated.map((trip) => (
             <div
               key={trip.id}
+              role="link"
+              tabIndex={0}
+              onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.click(); }}
               className="dashboard-card p-4 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => navigate(`/live_trip_monitor?search=${encodeURIComponent(trip.id)}`)}
             >

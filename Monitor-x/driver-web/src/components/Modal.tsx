@@ -37,6 +37,12 @@ export default function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const dismissableRef = useRef(dismissable);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    dismissableRef.current = dismissable;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -47,9 +53,9 @@ export default function Modal({
     function onKeyDown(e: KeyboardEvent) {
       if (!panel) return;
       if (!panel.contains(document.activeElement) && document.activeElement !== panel) return;
-      if (e.key === 'Escape' && dismissable) {
+      if (e.key === 'Escape' && dismissableRef.current) {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -78,7 +84,7 @@ export default function Modal({
       document.removeEventListener('keydown', onKeyDown, true);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose, dismissable]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -87,8 +93,8 @@ export default function Modal({
       className={`fixed inset-0 z-[10000] flex justify-center bg-black/60 ${
         align === 'bottom' ? 'items-end' : 'items-center p-4'
       }`}
+      role="presentation"
       // Backdrop click-to-close is a pointer convenience; Escape is the keyboard path (handled above).
-      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose(); }}
     >
       <div

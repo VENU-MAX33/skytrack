@@ -14,8 +14,8 @@ function toStaffDTO(doc: { _id: { toString(): string }; email: string; name: str
 
 staffRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
-    const docs = await User.find({ role: 'staff' }).sort({ name: 1 });
+  asyncHandler(async (req, res) => {
+    const docs = await User.find({ role: 'staff', companyId: req.auth!.companyId }).sort({ name: 1 });
     res.json(docs.map(toStaffDTO));
   })
 );
@@ -32,7 +32,7 @@ staffRouter.post(
     if (exists) throw new HttpError(409, `An account with email ${normalizedEmail} already exists`);
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const doc = await User.create({ email: normalizedEmail, passwordHash, name: name.trim(), role: 'staff' });
+    const doc = await User.create({ email: normalizedEmail, passwordHash, name: name.trim(), role: 'staff', companyId: req.auth!.companyId, active: true });
     res.status(201).json(toStaffDTO(doc));
   })
 );
@@ -40,7 +40,7 @@ staffRouter.post(
 staffRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    const doc = await User.findById(req.params.id);
+    const doc = await User.findOne({ _id: req.params.id, companyId: req.auth!.companyId });
     // Scoped to role: 'staff' so this endpoint can never be used to delete the main admin.
     if (!doc || doc.role !== 'staff') throw new HttpError(404, 'Staff account not found');
     await doc.deleteOne();

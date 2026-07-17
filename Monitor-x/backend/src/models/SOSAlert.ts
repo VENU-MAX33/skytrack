@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export type SosStatus = 'open' | 'acknowledged' | 'resolved';
 
@@ -33,4 +34,4 @@ const sosSchema = new Schema<SOSAlertDoc>(
 
 sosSchema.index({ status: 1, createdAt: -1 });
 
-export const SOSAlert = model<SOSAlertDoc>('SOSAlert', sosSchema);
+export const SOSAlert = tenantModel<SOSAlertDoc>('SOSAlert', sosSchema);

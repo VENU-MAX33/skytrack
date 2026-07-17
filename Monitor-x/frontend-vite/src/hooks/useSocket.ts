@@ -6,7 +6,7 @@ const SOCKET_URL =
   (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? '';
 
 /** Opens a single authenticated Socket.IO connection while `enabled` is true. */
-export function useSocket(enabled: boolean): React.MutableRefObject<Socket | null> {
+export function useSocket(enabled: boolean, sessionKey = ''): React.MutableRefObject<Socket | null> {
   const ref = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function useSocket(enabled: boolean): React.MutableRefObject<Socket | nul
       socket.disconnect();
       ref.current = null;
     };
-  }, [enabled]);
+  }, [enabled, sessionKey]);
 
   return ref;
 }

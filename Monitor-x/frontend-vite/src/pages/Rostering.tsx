@@ -389,9 +389,12 @@ export default function Rostering() {
       {/* Context Menu */}
       {contextMenu && (
         <div 
+          role="menu"
+          tabIndex={-1}
           className="fixed bg-white border border-[#E0E4E9] shadow-lg rounded py-1 z-50 text-[13px] w-48"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           <button 
             className="w-full text-left px-4 py-2 hover:bg-[#F5F6FA]"

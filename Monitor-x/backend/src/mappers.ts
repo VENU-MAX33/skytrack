@@ -146,7 +146,7 @@ function toTripSchedule(
   doc: PopulatedTrip,
   selfId?: Types.ObjectId
 ): TripSchedule | null {
-  if (!doc.scheduledStartAt || !doc.scheduleStops?.length) return null;
+  if (!doc.scheduleStops?.length) return null;
   const employees = new Map(doc.employeeIds.map((employee) => [employee._id.toString(), employee]));
   const stops = doc.scheduleStops
     .filter((stop) => !selfId || stop.employeeId.equals(selfId))

@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface RoutePoint {
   lat: number;
@@ -26,8 +27,8 @@ const routePointSchema = new Schema<RoutePoint>({
 }, { _id: false });
 
 const routeSchema = new Schema<RouteDoc>({
-  routeId: { type: Number, required: true, unique: true },
-  name: { type: String, required: true, unique: true },
+  routeId: { type: Number, required: true },
+  name: { type: String, required: true },
   type: { type: String, default: 'Both' },
   destinationAddress: { type: String, default: '' },
   destLat: { type: Number, default: null },
@@ -40,4 +41,7 @@ const routeSchema = new Schema<RouteDoc>({
   geometryError: { type: String, default: '' },
 });
 
-export const Route = model<RouteDoc>('Route', routeSchema);
+routeSchema.index({ companyId: 1, routeId: 1 }, { unique: true });
+routeSchema.index({ companyId: 1, name: 1 }, { unique: true });
+
+export const Route = tenantModel<RouteDoc>('Route', routeSchema);

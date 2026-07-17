@@ -22,7 +22,7 @@ export default function VehicleTracking() {
     const key = info?.trackingKey ?? '';
     if (!key) return;
     try {
-      if (navigator.share) await navigator.share({ title: 'MonitorX Tracking Key', text: key });
+      if (navigator.share) await navigator.share({ title: 'SkyTrack Tracking Key', text: key });
       else {
         await navigator.clipboard.writeText(key);
         toast.success('Tracking key copied');

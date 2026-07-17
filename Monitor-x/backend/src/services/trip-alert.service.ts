@@ -3,6 +3,8 @@ import { Trip, type TripDoc } from '../models/Trip.js';
 import { SosConfig } from '../models/SosConfig.js';
 import { createNotification } from './notification.service.js';
 import { sendSms } from './sms.service.js';
+import { Company } from '../models/Company.js';
+import { tenantContext } from '../tenancy/context.js';
 
 const ONGOING_STATUSES = ['Trip Started', 'Pickup Started', 'Drop Started'];
 const OVERDUE_ELIGIBLE_STATUSES = ['Not Started Yet', 'Driver Accepted', ...ONGOING_STATUSES];
@@ -72,7 +74,7 @@ function incompleteOtpMessage(trip: AlertTrip, pending: AlertTrip['employeeIds']
   const verifiedCount = trip.employeeIds.length - pending.length;
   const pendingList = pending.map((employee) => `${employee.name} (${employee.empId})`).join(', ');
   return [
-    'MONITORX OTP ALERT',
+    'SKYTRACK OTP ALERT',
     `Trip: ${trip.tripId} | ${trip.type} | ${trip.date} ${trip.shiftTime}`,
     `Route: ${trip.routeId?.name || trip.location || 'Not set'} | Vehicle: ${trip.vehicleId?.rtoNo || 'Not set'}`,
     `Driver: ${trip.driverId?.name || 'Unassigned'} (${trip.driverId?.contact || 'No phone'})`,
@@ -157,7 +159,10 @@ export function startTripAlertScheduler(): void {
     if (schedulerRunning) return;
     schedulerRunning = true;
     try {
-      await processTripAlerts();
+      const companies = await Company.find({ status: 'active' }).select('_id').lean();
+      for (const company of companies) {
+        await tenantContext.run({ companyId: company._id.toString() }, () => processTripAlerts());
+      }
     } catch (err) {
       console.error('[trip-alert] Scheduled trip alert check failed:', err);
     } finally {
@@ -167,4 +172,9 @@ export function startTripAlertScheduler(): void {
 
   void run();
   scheduler = setInterval(() => { void run(); }, ALERT_CHECK_INTERVAL_MS);
+}
+
+export function stopTripAlertScheduler(): void {
+  if (scheduler) clearInterval(scheduler);
+  scheduler = null;
 }

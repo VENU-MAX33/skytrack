@@ -38,10 +38,14 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const socketRef = useSocket(!!user);
-  const [sosAlerts, setSosAlerts] = useState<SosAlert[]>([]);
-  const [escortReports, setEscortReports] = useState<EscortReport[]>([]);
-  const [empLocations, setEmpLocations] = useState<EmployeeLocationUpdate[]>([]);
+  const socketRef = useSocket(!!user?.company, user?.company?.id ?? '');
+  const sessionKey = `${user?.email ?? 'anonymous'}:${user?.company?.id ?? ''}`;
+  const [sosState, setSosState] = useState<{ key: string; value: SosAlert[] }>({ key: sessionKey, value: [] });
+  const [escortState, setEscortState] = useState<{ key: string; value: EscortReport[] }>({ key: sessionKey, value: [] });
+  const [locationState, setLocationState] = useState<{ key: string; value: EmployeeLocationUpdate[] }>({ key: sessionKey, value: [] });
+  const sosAlerts = sosState.key === sessionKey ? sosState.value : [];
+  const escortReports = escortState.key === sessionKey ? escortState.value : [];
+  const empLocations = locationState.key === sessionKey ? locationState.value : [];
 
   const on = useCallback(
     (event: string, handler: Handler) => {
@@ -54,21 +58,34 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.company) return;
     const socket = socketRef.current;
     if (!socket) return;
     const onSos = (alert: SosAlert) =>
-      setSosAlerts((prev) => (prev.some((a) => a.id === alert.id) ? prev : [alert, ...prev]));
-    const onAck = (alert: SosAlert) => setSosAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+      setSosState((state) => {
+        const prev = state.key === sessionKey ? state.value : [];
+        return { key: sessionKey, value: prev.some((a) => a.id === alert.id) ? prev : [alert, ...prev] };
+      });
+    const onAck = (alert: SosAlert) => setSosState((state) => ({
+      key: sessionKey,
+      value: (state.key === sessionKey ? state.value : []).filter((a) => a.id !== alert.id),
+    }));
     const onEmpLoc = (upd: EmployeeLocationUpdate) =>
-      setEmpLocations((prev) => {
+      setLocationState((state) => {
+        const prev = state.key === sessionKey ? state.value : [];
         const filtered = prev.filter((e) => e.empId !== upd.empId);
-        return [upd, ...filtered];
+        return { key: sessionKey, value: [upd, ...filtered] };
       });
     const onEscort = (report: EscortReport) =>
-      setEscortReports((prev) => (prev.some((r) => r.id === report.id) ? prev : [report, ...prev]));
+      setEscortState((state) => {
+        const prev = state.key === sessionKey ? state.value : [];
+        return { key: sessionKey, value: prev.some((r) => r.id === report.id) ? prev : [report, ...prev] };
+      });
     const onEscortAck = (report: EscortReport) =>
-      setEscortReports((prev) => prev.map((r) => (r.id === report.id ? report : r)));
+      setEscortState((state) => ({
+        key: sessionKey,
+        value: (state.key === sessionKey ? state.value : []).map((r) => (r.id === report.id ? report : r)),
+      }));
     socket.on('sos:alert', onSos);
     socket.on('sos:acknowledged', onAck);
     socket.on('employee:location', onEmpLoc);
@@ -81,23 +98,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.off('escort:report', onEscort);
       socket.off('escort:report:acknowledged', onEscortAck);
     };
-  }, [socketRef, user]);
+  }, [socketRef, user, sessionKey]);
 
   const dismissSos = useCallback(
-    (id: string) => setSosAlerts((prev) => prev.filter((a) => a.id !== id)),
-    []
+    (id: string) => setSosState((state) => ({ key: sessionKey, value: (state.key === sessionKey ? state.value : []).filter((a) => a.id !== id) })),
+    [sessionKey]
   );
 
   const dismissEscortReport = useCallback(
-    (id: string) => setEscortReports((prev) => prev.filter((r) => r.id !== id)),
-    []
+    (id: string) => setEscortState((state) => ({ key: sessionKey, value: (state.key === sessionKey ? state.value : []).filter((r) => r.id !== id) })),
+    [sessionKey]
   );
 
   const removeEmpLocation = useCallback(
-    (empId: string) => setEmpLocations((prev) => prev.filter((e) => e.empId !== empId)),
-    []
+    (empId: string) => setLocationState((state) => ({ key: sessionKey, value: (state.key === sessionKey ? state.value : []).filter((e) => e.empId !== empId) })),
+    [sessionKey]
   );
-  const clearEmpLocations = useCallback(() => setEmpLocations([]), []);
+  const clearEmpLocations = useCallback(() => setLocationState({ key: sessionKey, value: [] }), [sessionKey]);
 
   return (
     <RealtimeContext.Provider

@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface CompanyConfigDoc {
   name: string;
@@ -20,4 +21,4 @@ const companyConfigSchema = new Schema<CompanyConfigDoc>({
   vendors: { type: [String], default: [] },
 });
 
-export const CompanyConfig = model<CompanyConfigDoc>('CompanyConfig', companyConfigSchema);
+export const CompanyConfig = tenantModel<CompanyConfigDoc>('CompanyConfig', companyConfigSchema);

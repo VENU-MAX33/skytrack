@@ -78,7 +78,7 @@ export default function SettingsSheet() {
         </button>
 
         <div className="text-center text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
-          MonitorX Employee &bull; v{APP_VERSION}
+          SkyTrack Employee &bull; v{APP_VERSION}
         </div>
     </Modal>
   );

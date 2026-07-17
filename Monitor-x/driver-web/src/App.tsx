@@ -14,6 +14,7 @@ import TripDetail from './pages/TripDetail';
 import DriverProfile from './pages/DriverProfile';
 import AboutUs from './pages/AboutUs';
 import VehicleTracking from './pages/VehicleTracking';
+import TripReports from './pages/TripReports';
 
 function SosOverlay() {
   const { sosAlert, clearSos } = useRealtime();
@@ -49,6 +50,7 @@ export default function App() {
                   <Route path="/trip/:id" element={<TripDetail />} />
                   <Route path="/profile" element={<DriverProfile />} />
                   <Route path="/vehicle-tracking" element={<VehicleTracking />} />
+                  <Route path="/reports" element={<TripReports />} />
                   <Route path="/about" element={<AboutUs />} />
                 </Route>
                 </Routes>

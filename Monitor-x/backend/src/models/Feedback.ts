@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface FeedbackDoc {
   employeeId: Types.ObjectId;
@@ -19,4 +20,4 @@ const feedbackSchema = new Schema<FeedbackDoc>(
 
 feedbackSchema.index({ read: 1, submittedAt: -1 });
 
-export const Feedback = model<FeedbackDoc>('Feedback', feedbackSchema);
+export const Feedback = tenantModel<FeedbackDoc>('Feedback', feedbackSchema);

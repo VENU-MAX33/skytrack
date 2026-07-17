@@ -92,3 +92,7 @@ body {
   50% { box-shadow: 0 0 0 18px rgba(211, 47, 47, 0); }
 }
 .sos-pulse { animation: sos-pulse 1.2s infinite; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

@@ -5,6 +5,8 @@ import { signToken, requireRole } from '../middleware/auth.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { toVehicleDTO } from '../mappers.js';
+import { resolvePhoneLogin } from '../services/phone-login.service.js';
+import { tenantContext } from '../tenancy/context.js';
 
 export const driverAuthRouter = Router();
 
@@ -33,15 +35,17 @@ driverAuthRouter.post(
     const { phone } = req.body as { phone?: string };
     if (!phone) throw new HttpError(400, 'Phone number is required');
 
-    const driver = await Driver.findOne({ contact: phone.trim() });
+    const login = await resolvePhoneLogin('driver', phone);
+    const company = login.company;
+    const driver = await tenantContext.run({ companyId: company._id.toString() }, () => Driver.findById(login.accountId));
     if (!driver) throw new HttpError(404, 'Phone number not registered');
     if (driver.active !== 'Yes') throw new HttpError(403, 'This account is inactive');
 
-    await sendOtp({
+    await tenantContext.run({ companyId: company._id.toString() }, () => sendOtp({
       purpose: 'login',
       phone: driver.contact,
       driverId: driver._id,
-    });
+    }));
 
     res.json({ sent: true }); // the OTP is delivered by SMS only, never in the response
   })
@@ -54,18 +58,20 @@ driverAuthRouter.post(
     const { phone, code } = req.body as { phone?: string; code?: string };
     if (!phone || !code) throw new HttpError(400, 'Phone and OTP code are required');
 
-    const driver = await Driver.findOne({ contact: phone.trim() });
+    const login = await resolvePhoneLogin('driver', phone);
+    const company = login.company;
+    const driver = await tenantContext.run({ companyId: company._id.toString() }, () => Driver.findById(login.accountId));
     if (!driver) throw new HttpError(404, 'Phone number not registered');
     if (driver.active !== 'Yes') throw new HttpError(403, 'This account is inactive');
 
-    await verifyOtp({
+    await tenantContext.run({ companyId: company._id.toString() }, () => verifyOtp({
       purpose: 'login',
       phone: driver.contact,
       code,
-    });
+    }));
 
-    const token = signToken({ sub: driver._id.toString(), role: 'driver' }, '30d');
-    res.json({ token, user: { ...driverProfile(driver), role: 'driver' } });
+    const token = signToken({ sub: driver._id.toString(), role: 'driver', companyId: company._id.toString() }, '30d');
+    res.json({ token, user: { ...driverProfile(driver), role: 'driver', company: { code: company.code, name: company.name } } });
   })
 );
 

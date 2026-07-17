@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 export interface EmployeeDoc {
   empId: string;
@@ -27,7 +28,7 @@ export interface EmployeeDoc {
 }
 
 const employeeSchema = new Schema<EmployeeDoc>({
-  empId: { type: String, required: true, unique: true },
+  empId: { type: String, required: true },
   name: { type: String, required: true },
   gender: { type: String, default: '' },
   contact: { type: String, default: '' },
@@ -51,4 +52,6 @@ const employeeSchema = new Schema<EmployeeDoc>({
   passwordHash: { type: String, default: null },
 });
 
-export const Employee = model<EmployeeDoc>('Employee', employeeSchema);
+employeeSchema.index({ companyId: 1, empId: 1 }, { unique: true });
+
+export const Employee = tenantModel<EmployeeDoc>('Employee', employeeSchema);

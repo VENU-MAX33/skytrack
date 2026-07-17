@@ -1,4 +1,5 @@
-import { Schema, model, Types } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 import { TRIP_STATUSES } from '../lib/statusBuckets.js';
 
 export interface TripDoc {
@@ -60,7 +61,7 @@ const scheduleStopSchema = new Schema(
 );
 
 const tripSchema = new Schema<TripDoc>({
-  tripId: { type: String, required: true, unique: true },
+  tripId: { type: String, required: true },
   status: { type: String, enum: TRIP_STATUSES, default: 'Not Started Yet', index: true },
   type: { type: String, enum: ['PickUp', 'Drop'], required: true },
   date: { type: String, required: true, index: true },
@@ -100,4 +101,6 @@ const tripSchema = new Schema<TripDoc>({
   scheduleStops: { type: [scheduleStopSchema], default: [] },
 });
 
-export const Trip = model<TripDoc>('Trip', tripSchema);
+tripSchema.index({ companyId: 1, tripId: 1 }, { unique: true });
+
+export const Trip = tenantModel<TripDoc>('Trip', tripSchema);

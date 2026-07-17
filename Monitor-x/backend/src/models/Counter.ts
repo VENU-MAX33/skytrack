@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { Schema } from 'mongoose';
+import { tenantModel } from '../tenancy/model.js';
 
 // Named atomic sequence. Used to hand out gap-free, collision-free ids (e.g. the
 // per-day trip sequence) via a single $inc, instead of a racy "max + 1" read.
@@ -12,4 +13,4 @@ const counterSchema = new Schema<CounterDoc>({
   seq: { type: Number, default: 0 },
 });
 
-export const Counter = model<CounterDoc>('Counter', counterSchema);
+export const Counter = tenantModel<CounterDoc>('Counter', counterSchema);

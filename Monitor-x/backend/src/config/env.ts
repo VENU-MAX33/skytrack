@@ -55,11 +55,36 @@ export function assertSmsProviderSafe(nodeEnv: string | undefined, smsProvider: 
   }
 }
 
+export function assertProductionConfig(config: {
+  nodeEnv?: string; jwtSecret: string; corsOrigins: string[]; smsProvider: string;
+  fast2smsApiKey?: string; msg91AuthKey?: string; msg91SenderId?: string; msg91TemplateId?: string;
+}): void {
+  if (config.nodeEnv !== 'production') return;
+  if (config.jwtSecret.length < 32 || /change-me|dev-secret|test-secret/i.test(config.jwtSecret)) {
+    throw new Error('JWT_SECRET must be a unique production secret of at least 32 characters');
+  }
+  if (!config.corsOrigins.length || config.corsOrigins.some((origin) => {
+    try { return new URL(origin).protocol !== 'https:'; } catch { return true; }
+  })) throw new Error('Production CORS_ORIGINS must contain only valid HTTPS origins');
+  if (config.smsProvider === 'fast2sms' && !config.fast2smsApiKey) throw new Error('FAST2SMS_API_KEY is required');
+  if (config.smsProvider === 'msg91' && (!config.msg91AuthKey || !config.msg91SenderId || !config.msg91TemplateId)) {
+    throw new Error('MSG91_AUTH_KEY, MSG91_SENDER_ID and MSG91_TEMPLATE_ID are required');
+  }
+}
+
 // OTP / SMS delivery: 'dev' logs to console only; 'fast2sms'/'msg91' wire real SMS.
 const smsProvider = (process.env.SMS_PROVIDER ?? 'dev') as 'dev' | 'msg91' | 'fast2sms';
 
 try {
   assertSmsProviderSafe(process.env.NODE_ENV, smsProvider);
+  assertProductionConfig({
+    nodeEnv: process.env.NODE_ENV,
+    jwtSecret: process.env.JWT_SECRET ?? '', corsOrigins, smsProvider,
+    fast2smsApiKey: process.env.FAST2SMS_API_KEY,
+    msg91AuthKey: process.env.MSG91_AUTH_KEY,
+    msg91SenderId: process.env.MSG91_SENDER_ID,
+    msg91TemplateId: process.env.MSG91_TEMPLATE_ID,
+  });
 } catch (err) {
   console.error((err as Error).message);
   process.exit(1);
@@ -70,6 +95,7 @@ export const env = {
   mongodbUri: required('MONGODB_URI'),
   jwtSecret: required('JWT_SECRET'),
   corsOrigins,
+  trustProxy: process.env.TRUST_PROXY ?? '',
   // Shared default password seeded for every employee; admin can reset later.
   defaultEmployeePassword: process.env.DEFAULT_EMPLOYEE_PASSWORD ?? 'monitorx@123',
   smsProvider,
