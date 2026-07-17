@@ -88,8 +88,14 @@ export default function DriverManagement() {
 
   async function handleUploadFile(file: File) {
     try {
-      const rows = await parseExcel(file, { aliases: IMPORT_ALIASES });
-      if (rows.length === 0) { toast.error("No data rows found. Download the Driver template and add rows below its header."); return; }
+      const rows = await parseExcel(file, {
+        aliases: IMPORT_ALIASES,
+        requiredHeaders: ['Name', 'DL Number', 'Contact'],
+      });
+      if (rows.length === 0) {
+        toast.error("No driver rows found. Use the Driver sheet from the format guide and keep Name, DL Number, and Contact columns.");
+        return;
+      }
       setImportRows(rows);
       setServerImportErrors({});
       setShowImportModal(true);
@@ -154,13 +160,22 @@ export default function DriverManagement() {
           )}
           <button
             onClick={() => downloadTemplate("drivers_template.xlsx", DRIVER_HEADERS, DRIVER_EXAMPLE)}
-            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0047B2]"
             title="Download Excel template"
           >
             <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
             Template
           </button>
-          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer" title="Import drivers from Excel">
+          <a
+            href="/templates/admin-users-import-template.xlsx"
+            download
+            className="bg-white text-[#0047B2] border border-[#B8CBE7] px-3 py-2 rounded text-[13px] hover:bg-[#EEF5FF] transition-colors flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0047B2]"
+            title="Download the driver and employee format guide with example rows"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Format guide
+          </a>
+          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-[#0047B2]" title="Import drivers from Excel">
             <Upload className="w-4 h-4 text-[#E65100]" />
             {importing ? "Importing…" : "Upload"}
             <input

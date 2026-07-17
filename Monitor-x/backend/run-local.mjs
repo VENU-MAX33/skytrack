@@ -5,11 +5,14 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+import dotenv from 'dotenv';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const backendDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(backendDir, '.env') });
 const dbPath = path.join(backendDir, '.local-mongodb');
 await mkdir(dbPath, { recursive: true });
 const mongod = await MongoMemoryServer.create({ instance: { dbPath } });
@@ -42,11 +45,12 @@ if (process.env.SEED_DEMO_DATA === 'true') {
     console.log('[run-local] Database successfully seeded!');
   }
 } else if (!(await User.findOne({ email: 'admin@monitorx.com' }))) {
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
   await User.create({
     email: 'admin@monitorx.com',
-    passwordHash: await bcrypt.hash('Admin@123', 10),
+    passwordHash: await bcrypt.hash(adminPassword, 10),
     name: 'Admin',
     role: 'admin',
   });
-  console.log('[run-local] seeded admin@monitorx.com / Admin@123');
+  console.log(`[run-local] seeded admin@monitorx.com / ${adminPassword}`);
 }

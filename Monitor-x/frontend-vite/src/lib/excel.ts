@@ -1,4 +1,5 @@
-import * as XLSX from 'xlsx';
+import readXlsxFile, { type CellValue, type Sheet } from 'read-excel-file/browser';
+import writeXlsxFile, { type SheetData } from 'write-excel-file/browser';
 
 export type ExcelRow = Record<string, string>;
 
@@ -14,6 +15,8 @@ export interface ParseExcelOptions {
   aliases?: Record<string, string>;
   /** Prefer this sheet, falling back to the first populated sheet. */
   sheetName?: string;
+  /** Select the first populated sheet containing all of these headers. */
+  requiredHeaders?: string[];
 }
 
 export interface WorkbookTemplateSheet {
@@ -21,6 +24,12 @@ export interface WorkbookTemplateSheet {
   headers: string[];
   example?: Record<string, string>;
 }
+
+// Keep browser parsing bounded. The API has its own validation, but rejecting
+// oversized workbooks before parsing prevents an attacker-controlled workbook
+// from consuming excessive browser memory.
+export const MAX_EXCEL_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_EXCEL_ROWS = 5_000;
 
 function headerKey(value: unknown): string {
   return String(value ?? '')
@@ -30,7 +39,7 @@ function headerKey(value: unknown): string {
     .replace(/[^a-z0-9]+/g, '');
 }
 
-function displayCell(value: unknown): string {
+function displayCell(value: CellValue | null | undefined): string {
   if (value == null) return '';
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return value.toISOString().slice(0, 10);
@@ -39,17 +48,10 @@ function displayCell(value: unknown): string {
 }
 
 function parseSheet<T extends ExcelRow>(
-  name: string,
-  sheet: XLSX.WorkSheet,
+  sheet: Sheet,
   aliases: Record<string, string> = {},
 ): ParsedSheet<T> | null {
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    defval: '',
-    raw: false,
-    blankrows: false,
-    dateNF: 'yyyy-mm-dd',
-  });
+  const matrix = sheet.data;
   if (matrix.length === 0) return null;
 
   const aliasMap = new Map<string, string>();
@@ -70,36 +72,39 @@ function parseSheet<T extends ExcelRow>(
   const rows: T[] = [];
   for (const values of matrix.slice(headerIndex + 1)) {
     if (!values.some((cell) => displayCell(cell) !== '')) continue;
+    if (rows.length >= MAX_EXCEL_ROWS) {
+      throw new Error(`Excel file exceeds the ${MAX_EXCEL_ROWS.toLocaleString()} row limit`);
+    }
     const row: ExcelRow = {};
     headers.forEach((header, index) => { row[header] = displayCell(values[index]); });
     rows.push(row as T);
   }
-  return { name, headers, headerRow: headerIndex + 1, rows };
+  return { name: sheet.sheet, headers, headerRow: headerIndex + 1, rows };
 }
 
-function readFile(file: File): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(new Error('Failed to read the selected Excel file'));
-    reader.readAsArrayBuffer(file);
-  });
+function assertWorkbookSize(file: File): void {
+  if (file.size > MAX_EXCEL_FILE_BYTES) {
+    throw new Error(`Excel file must be ${MAX_EXCEL_FILE_BYTES / (1024 * 1024)} MB or smaller`);
+  }
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    throw new Error('Please upload an .xlsx workbook');
+  }
 }
 
 export async function parseWorkbook(
   file: File,
   options: ParseExcelOptions = {},
 ): Promise<ParsedSheet[]> {
-  const buffer = await readFile(file);
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
-  const preferred = options.sheetName
-    ? [options.sheetName, ...workbook.SheetNames.filter((name) => name !== options.sheetName)]
-    : workbook.SheetNames;
+  assertWorkbookSize(file);
+  const workbook = await readXlsxFile(file);
+  const preferredNames = options.sheetName
+    ? [options.sheetName, ...workbook.map((sheet) => sheet.sheet).filter((name) => name !== options.sheetName)]
+    : workbook.map((sheet) => sheet.sheet);
   const sheets: ParsedSheet[] = [];
-  for (const name of preferred) {
-    const sheet = workbook.Sheets[name];
+  for (const name of preferredNames) {
+    const sheet = workbook.find((candidate) => candidate.sheet === name);
     if (!sheet) continue;
-    const parsed = parseSheet(name, sheet, options.aliases);
+    const parsed = parseSheet(sheet, options.aliases);
     if (parsed) sheets.push(parsed);
   }
   return sheets;
@@ -110,26 +115,51 @@ export async function parseExcel<T extends ExcelRow>(
   options: ParseExcelOptions = {},
 ): Promise<T[]> {
   const sheets = await parseWorkbook(file, options);
-  return (sheets.find((sheet) => sheet.rows.length > 0)?.rows ?? []) as T[];
+  const required = new Set((options.requiredHeaders ?? []).map(headerKey));
+  const matchingSheet = sheets.find((sheet) => {
+    if (sheet.rows.length === 0) return false;
+    if (required.size === 0) return true;
+    const available = new Set(sheet.headers.map(headerKey));
+    return [...required].every((header) => available.has(header));
+  });
+  return (matchingSheet?.rows ?? []) as T[];
+}
+
+function cell(value: unknown, style: Record<string, unknown> = {}) {
+  return { value: value == null ? '' : String(value), type: String, ...style };
+}
+
+async function saveWorkbook(filename: string, sheets: SheetData[]): Promise<void> {
+  const result = await writeXlsxFile(sheets.map((data, index) => ({
+    data,
+    sheet: index === 0 ? 'Data' : `Data ${index + 1}`,
+    stickyRowsCount: 1,
+  })));
+  await result.toFile(filename);
 }
 
 export function exportToExcel(filename: string, data: Record<string, unknown>[]): void {
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Data');
-  XLSX.writeFile(wb, filename);
+  const headers = [...new Set(data.flatMap((row) => Object.keys(row)))];
+  const rows: SheetData = [
+    headers.map((header) => cell(header, { fontWeight: 'bold', backgroundColor: '#EAF2FF' })),
+    ...data.map((row) => headers.map((header) => cell(row[header]))),
+  ];
+  void saveWorkbook(filename, [rows]);
 }
 
 export function downloadWorkbookTemplate(filename: string, sheets: WorkbookTemplateSheet[]): void {
-  const workbook = XLSX.utils.book_new();
-  for (const definition of sheets) {
-    const matrix: string[][] = [definition.headers];
-    if (definition.example) matrix.push(definition.headers.map((header) => definition.example?.[header] ?? ''));
-    const sheet = XLSX.utils.aoa_to_sheet(matrix);
-    sheet['!cols'] = definition.headers.map((header) => ({ wch: Math.max(14, header.length + 2) }));
-    XLSX.utils.book_append_sheet(workbook, sheet, definition.name.slice(0, 31));
-  }
-  XLSX.writeFile(workbook, filename);
+  const workbookSheets: SheetData[] = sheets.map((definition) => [
+    definition.headers.map((header) => cell(header, { fontWeight: 'bold', backgroundColor: '#EAF2FF' })),
+    ...(definition.example
+      ? [definition.headers.map((header) => cell(definition.example?.[header] ?? ''))]
+      : []),
+  ]);
+  const result = writeXlsxFile(sheets.map((definition, index) => ({
+    data: workbookSheets[index],
+    sheet: definition.name.slice(0, 31),
+    stickyRowsCount: 1,
+  })));
+  void result.toFile(filename);
 }
 
 export function downloadTemplate(

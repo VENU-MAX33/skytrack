@@ -128,8 +128,14 @@ export default function EmployeeManagement() {
 
   async function handleImportFile(file: File) {
     try {
-      const rows = await parseExcel(file, { aliases: IMPORT_ALIASES });
-      if (rows.length === 0) { toast.error('No data rows found. Download the Employee template and add rows below its header.'); return; }
+      const rows = await parseExcel(file, {
+        aliases: IMPORT_ALIASES,
+        requiredHeaders: ['Employee ID', 'Name', 'Contact'],
+      });
+      if (rows.length === 0) {
+        toast.error('No employee rows found. Use the Employee sheet from the format guide and keep Employee ID, Name, and Contact columns.');
+        return;
+      }
       setImportRows(rows);
       setServerImportErrors({});
       setShowImportModal(true);
@@ -260,12 +266,21 @@ export default function EmployeeManagement() {
           )}
           <button
             onClick={() => downloadTemplate('employees_template.xlsx', EMPLOYEE_HEADERS, EMPLOYEE_EXAMPLE)}
-            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
+            className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0047B2]"
             title="Download Excel template"
           >
             <FileSpreadsheet className="w-4 h-4 text-[#18751C]" />
             Template
           </button>
+          <a
+            href="/templates/admin-users-import-template.xlsx"
+            download
+            className="bg-white text-[#0047B2] border border-[#B8CBE7] px-3 py-2 rounded text-[13px] hover:bg-[#EEF5FF] transition-colors flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0047B2]"
+            title="Download the driver and employee format guide with example rows"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Format guide
+          </a>
           <button
             onClick={handleExportExcel}
             className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2"
@@ -274,7 +289,7 @@ export default function EmployeeManagement() {
             <Download className="w-4 h-4 text-[#0047B2]" />
             Export
           </button>
-          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer" title="Import from Excel">
+          <label className="bg-[#F5F6FA] text-[#222222] border border-[#E0E4E9] px-3 py-2 rounded text-[13px] hover:bg-[#E0E4E9] transition-colors flex items-center gap-2 cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-[#0047B2]" title="Import from Excel">
             <Upload className="w-4 h-4 text-[#E65100]" />
             Import
             <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleImportFile(f); e.target.value = ''; } }} />

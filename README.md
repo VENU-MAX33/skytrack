@@ -36,7 +36,7 @@ app for employees, a mobile-web app for drivers, and a real-time backend.
 ## Tech stack
 
 Node.js · Express · MongoDB (Mongoose) · Socket.IO · React 18 · Vite · TypeScript ·
-Tailwind CSS · react-leaflet / OpenStreetMap · xlsx
+Tailwind CSS · react-leaflet / OpenStreetMap · read-excel-file / write-excel-file
 
 ## Getting started
 
@@ -60,9 +60,13 @@ cd ../driver-web && npm install && npm run dev       # http://localhost:5174
 cd ../employee-web && npm install && npm run dev     # http://localhost:5175
 ```
 
-Seeded admin login: `admin@monitorx.com` / `Admin@123` (change it in production).
+The local seed command generates development credentials and prints them once.
+Set `SEED_ADMIN_PASSWORD`, `SEED_STAFF_PASSWORD`, and
+`DEFAULT_EMPLOYEE_PASSWORD` in the backend environment when deterministic local
+credentials are needed. Production demo seeding is refused.
 Drivers log in with their phone number via OTP (dev mode prints the code unless an
-SMS provider is configured in `.env`); employees log in with employee ID + password.
+SMS provider is configured in `.env`); employees log in with employee ID + the
+seeded password.
 
 ## Notes
 

@@ -8,6 +8,7 @@ import { parseEmployeePoint, recommendRoute } from '../services/route-geometry.s
 import { assertPhoneAvailable, normalizePhone } from '../services/phone-login.service.js';
 
 export const employeesRouter = Router();
+const MAX_BULK_EMPLOYEES = 5_000;
 
 // Only these fields may be set through the API. Anything else the client sends
 // (notably passwordHash, managed by the employee's own login flow) is dropped,
@@ -150,6 +151,9 @@ employeesRouter.post(
     if (!Array.isArray(employees) || employees.length === 0) {
       throw new HttpError(400, 'employees array is required');
     }
+    if (employees.length > MAX_BULK_EMPLOYEES) {
+      throw new HttpError(413, `A single import may contain at most ${MAX_BULK_EMPLOYEES} employees`);
+    }
     const result = await prepareEmployeeBulk(employees);
     res.json({ valid: result.errors.length === 0, total: employees.length, errors: result.errors });
   })
@@ -161,6 +165,9 @@ employeesRouter.post(
     const { employees } = req.body as { employees?: Partial<EmployeeDTO>[] };
     if (!Array.isArray(employees) || employees.length === 0) {
       throw new HttpError(400, 'employees array is required');
+    }
+    if (employees.length > MAX_BULK_EMPLOYEES) {
+      throw new HttpError(413, `A single import may contain at most ${MAX_BULK_EMPLOYEES} employees`);
     }
     const result = await prepareEmployeeBulk(employees);
     if (result.errors.length > 0) {

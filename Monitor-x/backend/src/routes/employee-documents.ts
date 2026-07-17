@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Employee } from '../models/Employee.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
 import { toEmployeeDocDTO } from '../mappers.js';
@@ -14,6 +15,21 @@ const ALLOWED_DOCUMENT_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
+const MAX_DOCUMENTS_PER_EMPLOYEE = 20;
+const MAX_DOCUMENT_BYTES_PER_COMPANY = 200 * 1024 * 1024;
+
+// A valid admin token is still not permission to consume unlimited database
+// and request memory. This is keyed by the authenticated principal rather
+// than only IP so a proxy cannot turn many source IPs into one upload flood.
+const documentUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.auth?.sub ?? ipKeyGenerator(req.ip ?? 'unknown'),
+  message: { error: 'Too many document uploads. Please wait before uploading more files.' },
+  validate: { xForwardedForHeader: false },
+});
 
 function validateDocument(name: string, mimeType: string, base64: string): Buffer {
   if (!ALLOWED_DOCUMENT_TYPES.has(mimeType)) throw new HttpError(415, 'Unsupported document type');
@@ -50,6 +66,7 @@ employeeDocumentsRouter.get(
 // POST /api/employees/:id/documents — upload document
 employeeDocumentsRouter.post(
   '/:id/documents',
+  documentUploadLimiter,
   requirePermission((role) => role === 'admin' || role === 'platform-owner'),
   asyncHandler(async (req, res) => {
     const { name, mimeType, base64 } = req.body as {
@@ -64,6 +81,21 @@ employeeDocumentsRouter.post(
 
     const emp = await Employee.findOne({ empId: req.params.id });
     if (!emp) throw new HttpError(404, 'Employee not found');
+
+    const [employeeCount, companyUsage] = await Promise.all([
+      EmployeeDocument.countDocuments({ employeeId: emp._id }),
+      EmployeeDocument.aggregate<{ bytes: number }>([
+        { $group: { _id: null, bytes: { $sum: { $strLenBytes: '$base64' } } } },
+      ]),
+    ]);
+    if (employeeCount >= MAX_DOCUMENTS_PER_EMPLOYEE) {
+      throw new HttpError(413, `An employee can have at most ${MAX_DOCUMENTS_PER_EMPLOYEE} documents`);
+    }
+    const encodedBytes = Buffer.byteLength(base64, 'utf8');
+    const storedBytes = companyUsage[0]?.bytes ?? 0;
+    if (storedBytes + encodedBytes > MAX_DOCUMENT_BYTES_PER_COMPANY) {
+      throw new HttpError(413, 'Company document storage quota exceeded');
+    }
 
     const doc = await EmployeeDocument.create({
       employeeId: emp._id,

@@ -1,12 +1,62 @@
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Environment files and local secrets
 .env
-Monitor-x/backend/.local-mongodb/
+.env.*
+!.env.example
+!**/.env.example
+*.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Build output, bundler caches, and test coverage
 dist/
+**/dist/
 build/
+**/build/
+.vite/
+**/.vite/
+coverage/
+**/coverage/
+.nyc_output/
+**/.nyc_output/
+
+# Local databases and runtime data
+Monitor-x/backend/.local-mongodb/
+**/.local-mongodb/
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+*.swp
+
+# Graphify analysis output and generated scope artifacts
+Monitor-x/**/graphify-out/
+Monitor-x/root-docs-scope/
+Monitor-x/.graphify_detect.json
+Monitor-x/.graphify_python
+
+# Local tooling and editor settings
 .agent/
 .agents/
 .claude/
 skills-lock.json
-*.local
 .vscode/
+.idea/
+*.code-workspace
 senior-prompt-engineer/
+.DS_Store
+Thumbs.db
+desktop.ini

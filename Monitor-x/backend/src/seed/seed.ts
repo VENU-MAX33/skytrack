@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { connectDb } from '../config/db.js';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
@@ -89,7 +90,18 @@ function jitter(base: number, i: number, scale = 0.01): number {
   return Number((base + Math.sin(i * 7.3) * scale).toFixed(6));
 }
 
+function seedPassword(configured: string, label: string): string {
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${label} must be set explicitly; refusing to seed a predictable production credential`);
+  }
+  return crypto.randomBytes(24).toString('base64url');
+}
+
 export async function seed(shouldDisconnect = true) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to run the destructive demo seed in production');
+  }
   if (mongoose.connection.readyState !== 1) {
     await connectDb();
   }
@@ -109,11 +121,14 @@ export async function seed(shouldDisconnect = true) {
   ]);
 
   // 1. Admin user
-  const passwordHash = await bcrypt.hash('Admin@123', 10);
+  const adminPassword = seedPassword(env.seedAdminPassword, 'SEED_ADMIN_PASSWORD');
+  const staffPassword = seedPassword(env.seedStaffPassword, 'SEED_STAFF_PASSWORD');
+  const employeePassword = seedPassword(env.defaultEmployeePassword, 'DEFAULT_EMPLOYEE_PASSWORD');
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
   await User.create({ email: 'admin@monitorx.com', passwordHash, name: 'Admin', role: 'admin' });
 
   // 1b. Sample staff (limited-access) login for local testing
-  const staffPasswordHash = await bcrypt.hash('Staff@123', 10);
+  const staffPasswordHash = await bcrypt.hash(staffPassword, 10);
   await User.create({ email: 'staff@monitorx.com', passwordHash: staffPasswordHash, name: 'Staff', role: 'staff' });
 
   // 2. Routes
@@ -176,7 +191,7 @@ export async function seed(shouldDisconnect = true) {
 
   // 5. Employees — ~5 per route, a few unrouted, 36 active / 4 inactive
   // Every employee shares the same default login password (admin can reset later).
-  const employeePasswordHash = await bcrypt.hash(env.defaultEmployeePassword, 10);
+  const employeePasswordHash = await bcrypt.hash(employeePassword, 10);
   const employeeData = Array.from({ length: 40 }, (_, i) => {
     const female = i % 5 === 1 || i % 5 === 3 ? i % 2 === 1 : false;
     const firstName = female
@@ -326,11 +341,13 @@ export async function seed(shouldDisconnect = true) {
   console.log(`  rosters:   ${rosters.length}`);
   console.log(`  approvals: ${approvals.length}`);
   console.log('');
-  console.log('Logins:');
-  console.log('  Admin:    admin@monitorx.com / Admin@123');
-  console.log('  Staff:    staff@monitorx.com / Staff@123 (limited access)');
-  console.log(`  Employee: <empId e.g. EMP001> / ${env.defaultEmployeePassword}`);
-  console.log(`  Driver:   <phone e.g. ${drivers[0].contact}> -> set password on first login`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Logins (development seed credentials; store them securely):');
+    console.log(`  Admin:    admin@monitorx.com / ${adminPassword}`);
+    console.log(`  Staff:    staff@monitorx.com / ${staffPassword} (limited access)`);
+    console.log(`  Employee: <empId e.g. EMP001> / ${employeePassword}`);
+    console.log(`  Driver:   <phone e.g. ${drivers[0].contact}> -> set password on first login`);
+  }
 
   if (shouldDisconnect) {
     await mongoose.disconnect();

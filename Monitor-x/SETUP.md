@@ -6,7 +6,7 @@ Four services make up the platform. All three frontends talk to the one backend
 | Service | Folder | Dev port | Login |
 |---|---|---|---|
 | Backend (API + WebSocket) | `Monitor-x/backend` | 5000 | — |
-| Admin panel | `Monitor-x/frontend-vite` | 5173 | `admin@monitorx.com` / `Admin@123` |
+| Admin panel | `Monitor-x/frontend-vite` | 5173 | Credentials printed by the local seed command |
 | Driver app | `Monitor-x/driver-web` | 5174 | phone (driver `contact`) + password |
 | Employee app | `Monitor-x/employee-web` | 5175 | `empId` + default password |
 
@@ -33,7 +33,9 @@ New optional variables (sensible defaults shown):
 |---|---|---|
 | `CORS_ORIGINS` | `http://localhost:5173,5174,5175,127.0.0.1:5173,5174,5175` | Comma-separated production origins (REST + WS). Falls back to legacy `CORS_ORIGIN`; in development, any `localhost`/`127.0.0.1` Vite port is accepted. |
 | `TRUST_PROXY` | empty | Number of trusted proxies in front of the API, commonly `1` in production. Required for correct IP rate limiting behind a load balancer. |
-| `DEFAULT_EMPLOYEE_PASSWORD` | `monitorx@123` | Shared password seeded for every employee. |
+| `SEED_ADMIN_PASSWORD` | generated | Optional local-only admin seed password. |
+| `SEED_STAFF_PASSWORD` | generated | Optional local-only staff seed password. |
+| `DEFAULT_EMPLOYEE_PASSWORD` | generated | Optional local-only password seeded for every employee. |
 | `SMS_PROVIDER` | `dev` | `dev` logs OTPs to the backend console. Set `fast2sms` to deliver real OTP SMS. |
 | `FAST2SMS_API_KEY` | — | Required only when `SMS_PROVIDER=fast2sms`. Keep it in `backend/.env`; never expose it to a frontend. |
 | `MSG91_AUTH_KEY` / `MSG91_SENDER_ID` / `MSG91_TEMPLATE_ID` | — | Required only when `SMS_PROVIDER=msg91`. |
@@ -50,9 +52,10 @@ New optional variables (sensible defaults shown):
 cd Monitor-x/backend && npm run seed
 ```
 
-This sets every employee's password to `DEFAULT_EMPLOYEE_PASSWORD` and leaves
-driver passwords unset (drivers create theirs on first login). The seed prints
-example logins at the end.
+This sets every employee's password to `DEFAULT_EMPLOYEE_PASSWORD` when it is
+provided, otherwise it generates a random password. It leaves driver passwords
+unset (drivers create theirs on first login). Development credentials are
+printed once at the end; the seed refuses to run in production.
 
 ## Running (four terminals)
 
@@ -68,7 +71,7 @@ cd Monitor-x/employee-web && npm run dev       # :5175  (employee)
 1. **Driver first login:** open `:5174` → "First time? Set password" → enter a
    seeded driver phone (the seed prints one, e.g. the first driver's `contact`)
    and a password.
-2. **Employee login:** open `:5175` → `EMP001` / `monitorx@123`.
+2. **Employee login:** open `:5175` → `EMP001` / the generated employee password printed by the seed.
 3. **Freeze a trip:** in the admin (`:5173`) Trip Management, freeze a frozen-eligible
    trip whose driver = your test driver → driver app shows it instantly; employee
    app shows driver + vehicle.

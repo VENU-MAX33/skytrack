@@ -16,7 +16,10 @@ let httpServer: http.Server | null = null;
 
 /** Boot an isolated in-memory MongoDB, connect mongoose, and init Socket.IO. */
 export async function startTestDb(): Promise<void> {
-  mongod = await MongoMemoryServer.create();
+  // Windows CI/dev machines can take longer than MongoMemoryServer's 10s
+  // default to launch the first binary. Give startup enough room so a slow
+  // process does not masquerade as an application test failure.
+  mongod = await MongoMemoryServer.create({ instance: { launchTimeout: 60_000 } });
   await mongoose.connect(mongod.getUri());
   await Company.create({ _id: LEGACY_COMPANY_ID, code: 'TEST', name: 'Test Company', status: 'active' });
   // Init a Socket.IO server (not listening) so emit helpers used by routes work.

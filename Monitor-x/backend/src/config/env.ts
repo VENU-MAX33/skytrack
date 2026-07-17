@@ -96,8 +96,11 @@ export const env = {
   jwtSecret: required('JWT_SECRET'),
   corsOrigins,
   trustProxy: process.env.TRUST_PROXY ?? '',
-  // Shared default password seeded for every employee; admin can reset later.
-  defaultEmployeePassword: process.env.DEFAULT_EMPLOYEE_PASSWORD ?? 'monitorx@123',
+  // Optional seed-only passwords. When omitted, the seed command generates
+  // cryptographically random development credentials and prints them once.
+  seedAdminPassword: process.env.SEED_ADMIN_PASSWORD ?? '',
+  seedStaffPassword: process.env.SEED_STAFF_PASSWORD ?? '',
+  defaultEmployeePassword: process.env.DEFAULT_EMPLOYEE_PASSWORD ?? '',
   smsProvider,
   fast2smsApiKey: process.env.FAST2SMS_API_KEY ?? '',
   msg91: {
