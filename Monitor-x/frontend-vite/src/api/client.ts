@@ -15,7 +15,7 @@ function authHeaders(): Record<string, string> {
 
 async function request(url: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20_000);
+  const timer = setTimeout(() => controller.abort(), 75_000);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
